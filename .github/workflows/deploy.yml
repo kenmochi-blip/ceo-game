@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - claude/serene-albattani-LDzRf
   workflow_dispatch:
 
 permissions:
