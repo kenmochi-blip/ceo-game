@@ -1,11 +1,10 @@
 import { useState } from "react";
 import {
-  START_CASH, TARGET_PROFIT, MONTHS, SETUP_TOTAL, SETUP_ASSET,
+  START_CASH, TARGET_PROFIT, MONTHS, SETUP_TOTAL,
   RENT, LEASE, UTILITY, FOOD_INVEST_COST, MOS, yen,
 } from "../constants";
 import Sakura from "../components/characters/Sakura";
 import Talk from "../components/characters/Talk";
-import BSChart from "../components/charts/BSChart";
 import Spark from "../components/charts/Spark";
 import AN from "../components/ui/AnimNum";
 import Shell from "../components/ui/Shell";
@@ -21,8 +20,6 @@ export default function Stage1() {
   const [step, setStep] = useState("title");
   const [month, setMonth] = useState(1);
   const [cash, setCash] = useState(START_CASH);
-  const [otherAsset, setOtherAsset] = useState(0);
-  const [drawCum, setDrawCum] = useState(0);
   const [yearSales, setYearSales] = useState(0);
   const [yearCost, setYearCost] = useState(0);
   const [yearRent, setYearRent] = useState(0);
@@ -30,7 +27,6 @@ export default function Stage1() {
   const [yearUtil, setYearUtil] = useState(0);
   const [yearAd, setYearAd] = useState(0);
   const [yearFoodInvest, setYearFoodInvest] = useState(0);
-  const [retained, setRetained] = useState(0);
   const [cur, setCur] = useState(null);
   const [prev, setPrev] = useState(null);
   const [history, setHistory] = useState([]);
@@ -44,17 +40,11 @@ export default function Stage1() {
   const [food, setFood] = useState(0);
   const [foodInvested, setFoodInvested] = useState(false);
 
-  const capital = START_CASH;
   const yearFixed = yearRent+yearLease+yearUtil+yearAd+yearFoodInvest;
   const yearProfit = yearSales-yearCost-yearFixed;
-  const totalAsset = cash+otherAsset+drawCum;
-  const netEquity = capital+retained;
-  const bsMax = Math.max(totalAsset, capital, 1);
 
   const doSetup = () => {
     setCash(START_CASH-SETUP_TOTAL);
-    setOtherAsset(SETUP_ASSET);
-    setRetained(-(SETUP_TOTAL-SETUP_ASSET));
     setStep("plan");
   };
 
@@ -86,7 +76,6 @@ export default function Stage1() {
     setYearSales(y=>y+sales); setYearCost(y=>y+cogs);
     setYearRent(y=>y+RENT); setYearLease(y=>y+LEASE); setYearUtil(y=>y+UTILITY);
     setYearAd(y=>y+adCost); setYearFoodInvest(y=>y+foodInvThisMonth);
-    setRetained(r=>r+profit); setDrawCum(d=>d+draw);
     setLastFlow(flow); setLastProfit(profit); setLastDraw(draw);
     setStep("reveal");
   };
@@ -97,9 +86,9 @@ export default function Stage1() {
   };
 
   const restart = () => {
-    setStep("title"); setMonth(1); setCash(START_CASH); setOtherAsset(0); setDrawCum(0);
+    setStep("title"); setMonth(1); setCash(START_CASH);
     setYearSales(0); setYearCost(0); setYearRent(0); setYearLease(0); setYearUtil(0); setYearAd(0);
-    setYearFoodInvest(0); setRetained(0); setCur(null); setPrev(null); setHistory([]);
+    setYearFoodInvest(0); setCur(null); setPrev(null); setHistory([]);
     setLastFlow(null); setLastProfit(null); setLastDraw(null);
     setStock(2); setPrice(2); setAd(0); setDraw(150000); setFood(0); setFoodInvested(false);
   };
@@ -116,7 +105,7 @@ export default function Stage1() {
       <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200 text-[12px] text-stone-500 leading-relaxed">
         ・現金が尽きたらゲームオーバー<br/>
         ・1年で <b className="text-stone-700">年間利益 {yen(TARGET_PROFIT)}</b> 達成でクリア<br/>
-        ・毎月の判断でPL・BSが動きます
+        ・毎月の判断で売上・利益が動きます
       </div>
       <Btn onClick={()=>setStep("setup")}>開業の準備をする →</Btn>
     </Shell>
@@ -124,8 +113,7 @@ export default function Stage1() {
 
   // ===== Setup =====
   if(step==="setup") {
-    const pvC=START_CASH-SETUP_TOTAL, pvO=SETUP_ASSET, pvR=-(SETUP_TOTAL-SETUP_ASSET);
-    const pvE=START_CASH+pvR, pvMax=Math.max(pvC+pvO,START_CASH,1);
+    const pvC=START_CASH-SETUP_TOTAL;
     return (
       <Shell>
         <h2 className="text-lg font-medium text-stone-800 pt-2">開業準備</h2>
@@ -136,12 +124,7 @@ export default function Stage1() {
           <div className="border-t border-stone-200 my-1"></div>
           <Row label="開業後の現金" val={yen(pvC)} bold/>
         </div>
-        <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200">
-          <div className="text-xs text-stone-500 mb-2">開業直後のBS（貸借対照表）</div>
-          <BSChart cash={pvC} other={pvO} drawCum={0} capital={START_CASH} retained={pvR}/>
-          <p className="text-[11px] text-stone-500 leading-relaxed mt-2">左の柱（資産）と右の柱（純資産）の高さは<b>必ず釣り合います</b>。</p>
-        </div>
-        <Talk who="hotta">BSの<b>現金はお店の現金</b>、<b>元手は開業時から不変</b>です。生活費の引き出しは「事業主貸」として記録されます。黒字でも生活費を取りすぎればお店の現金は減る。ここ、つまずきやすいですからね。</Talk>
+        <Talk who="hotta">これが、お店のスタート資金です。ここから毎月、売上が入り、家賃や仕入れ、あなたの生活費が出ていく。<b>黒字でも、生活費を取りすぎればお店の現金は減ります</b>。まずは利益と現金を、しっかり見ていきましょう。</Talk>
         <Btn onClick={doSetup}>開業する →</Btn>
       </Shell>
     );
@@ -214,7 +197,7 @@ export default function Stage1() {
     let msg;
     if(cash<0) msg=<>現金が尽きました…。利益が出ていても現金が回らなければ事業は止まる。これが最初の壁です。</>;
     else if(cur.foodInvest>0) msg=<>フードメニューの導入費¥{yen(FOOD_INVEST_COST)}を今月のPLに計上しました。今月は大きな出費になりますが、来月から<b>客単価と粗利率が改善</b>します。何ヶ月で回収できるか、意識してみましょう。</>;
-    else if(month===1) msg=<>売上から原価・固定費を引いたのが<b>利益</b>。生活費はお店から引き出すと<b>「事業主貸」</b>として資産に振り替わります。BSの黄色がそれ。お店の現金が個人へ流れた記録です。</>;
+    else if(month===1) msg=<>売上から原価・固定費を引いたのが<b>利益</b>です。そして生活費は、お店の現金から<b>あなた個人の財布へ引き出す</b>もの。だから利益が出ていても、生活費を取りすぎればお店の現金は減ります。<b>売上・利益・現金は、それぞれ別物</b>なんですよ。</>;
     else if(lastProfit>0&&lastFlow<0) msg=<>今月は<b>黒字なのに現金が減りました</b>。生活費の取りすぎです。黒字でも油断は禁物ですよ。</>;
     else if(cash<500000) msg=<>現金が心細い。来月の固定費は待ってくれません。生活費を抑えるか、売上を伸ばす手を打ちましょう。</>;
     else if(cur.profit>0) msg=<>いい調子です。この調子で年間目標を目指しましょう。</>;
@@ -263,7 +246,7 @@ export default function Stage1() {
     );
   }
 
-  // ===== Sheets（PL上・BS下） =====
+  // ===== Sheets（PLのみ。BSは法人成り以降で登場） =====
   if(step==="sheets") return (
     <Shell cash={cash}>
       <StepHeader month={month} label={`${MOS[month-1]}月 決算書`}/>
@@ -304,12 +287,6 @@ export default function Stage1() {
           <div className="h-full bg-amber-400 rounded-full transition-all duration-700" style={{width:Math.max(0,Math.min(100,yearProfit/TARGET_PROFIT*100))+"%"}}></div>
         </div>
       </div>
-      {/* BS */}
-      <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200">
-        <div className="text-xs text-stone-500 mb-2">BS 貸借対照表（店の財産）</div>
-        <BSChart cash={cash} other={otherAsset} drawCum={drawCum} capital={capital} retained={retained}/>
-        <p className="text-[10px] text-stone-400 text-center mt-1">タップ／ホバーで科目と金額を確認できます</p>
-      </div>
       <Btn onClick={afterSheets}>{month>=MONTHS?"結果を見る →":`${MOS[month%12]}月へ進む →`}</Btn>
     </Shell>
   );
@@ -330,7 +307,6 @@ export default function Stage1() {
         <Row label="年間売上" val={yen(yearSales)}/>
         <Row label="年間利益" val={yen(yearProfit)} bold red={yearProfit<0}/>
         <Row label="最終現金（店）" val={yen(cash)} red={cash<0}/>
-        <Row label="純資産" val={yen(netEquity)}/>
       </div>
       {!bankrupt&&<Talk who="hotta">確定申告です。今年の税金（概算）は<b>約{yen(incomeTax)}</b>。所得税・住民税・国保・国民年金など。<b>稼ぐほど累進で重くなります。</b></Talk>}
       <Talk who={bankrupt?"hotta":"sakura"}>
@@ -342,7 +318,7 @@ export default function Stage1() {
         <div className="bg-stone-800 text-white rounded-xl p-4 mt-3 text-sm leading-relaxed">
           <div className="text-amber-300 text-xs mb-1">🔓 NEXT STAGE</div>
           ステージ2「法人成り」が見えてきた。<br/>
-          <span className="text-stone-300 text-xs">資本金・役員報酬・法人税…新しい世界が始まる。</span>
+          <span className="text-stone-300 text-xs">資本金・役員報酬・法人税…そして会社の財産を映す「BS（貸借対照表）」が、ここから姿を現す。</span>
         </div>
       )}
       <Btn onClick={restart}>もう一度プレイする ↺</Btn>
