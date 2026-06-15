@@ -8,7 +8,7 @@ export default function PL2({ label, m, pm, y, bold, sub, indent, indent2, redNe
   let diff=null;
   if(pm!==null&&pm!==undefined){
     const d=m-pm, sign=d>0?"+":d<0?"−":"±";
-    diff=<span className={"text-[9px] "+(d===0?"text-stone-300":"text-stone-400")}> ({sign}{yen(Math.abs(d))})</span>;
+    diff=<span className={"text-[11px] "+(d===0?"text-stone-300":"text-stone-400")}> ({sign}{yen(Math.abs(d))})</span>;
   }
   const rc=(sub?"border-t border-stone-100 ":"")+(topline?"border-t border-stone-300 ":"");
   const lc=bold?"font-medium text-stone-700":sub?"text-stone-600":"text-stone-500";

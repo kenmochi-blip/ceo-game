@@ -14,7 +14,7 @@ export default function Spark({ data, color, height=44 }) {
         {n>1&&<polyline points={pts} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>}
         {data.map((d,i)=><circle key={i} cx={x(i)} cy={y(d.v)} r={i===n-1?3.5:2} fill={color}/>)}
       </svg>
-      <div className="flex justify-between text-[9px] text-stone-400 px-1"><span>{data[0].m}月</span><span>{last.m}月</span></div>
+      <div className="flex justify-between text-[11px] text-stone-400 px-1"><span>{data[0].m}月</span><span>{last.m}月</span></div>
     </div>
   );
 }

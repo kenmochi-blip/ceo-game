@@ -1,3 +1,8 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* 全体の基準フォントを少し大きめにして、rem ベースの text-xs/sm/lg 等を一律で底上げする */
+html {
+  font-size: 18px;
+}

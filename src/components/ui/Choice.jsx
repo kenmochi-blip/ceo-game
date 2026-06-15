@@ -6,7 +6,7 @@ export default function Choice({ label, value, setValue, opts }) {
       <div className="flex gap-1">
         {opts.map((o,i)=>(
           <button key={i} onClick={()=>setValue(i+1)}
-            className={"flex-1 text-[11px] leading-tight rounded-lg py-2 px-1 border transition-colors "+(value===i+1?"bg-amber-700 text-white border-amber-700":"bg-white text-stone-600 border-stone-200")}>
+            className={"flex-1 text-[13px] leading-tight rounded-lg py-2 px-1 border transition-colors "+(value===i+1?"bg-amber-700 text-white border-amber-700":"bg-white text-stone-600 border-stone-200")}>
             {o}
           </button>
         ))}

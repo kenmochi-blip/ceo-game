@@ -32,7 +32,7 @@ export default function BSChart({ cash, other, drawCum, capital, retained }) {
           <span className="text-xs text-stone-500 mt-1.5 font-medium">負債・純資産</span>
         </div>
       </div>
-      {tip&&<div className="absolute left-1/2 -translate-x-1/2 top-0 bg-stone-800 text-white text-[11px] rounded-lg px-3 py-1.5 shadow pointer-events-none whitespace-nowrap z-20">{tip.label}：{yen(tip.v)}</div>}
+      {tip&&<div className="absolute left-1/2 -translate-x-1/2 top-0 bg-stone-800 text-white text-[13px] rounded-lg px-3 py-1.5 shadow pointer-events-none whitespace-nowrap z-20">{tip.label}：{yen(tip.v)}</div>}
     </div>
   );
 }
@@ -44,7 +44,7 @@ function Seg({ h, c, label, v, st }) {
       className="flex flex-col items-center justify-center overflow-hidden shrink-0 cursor-pointer select-none"
       onMouseEnter={()=>st({label,v})} onMouseLeave={()=>st(null)}
       onTouchStart={()=>st({label,v})} onTouchEnd={()=>st(null)}>
-      {show&&<><span className="text-[11px] font-medium text-white/95 leading-tight px-1 text-center">{label}</span><span className="text-[10px] text-white/90">{yen(v)}</span></>}
+      {show&&<><span className="text-[13px] font-medium text-white/95 leading-tight px-1 text-center">{label}</span><span className="text-[12px] text-white/90">{yen(v)}</span></>}
     </div>
   );
 }

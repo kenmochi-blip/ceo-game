@@ -15,11 +15,11 @@ export default function Lesson({ lesson, onClose }) {
         <div className="flex items-center gap-2 border-b border-stone-100 pb-2">
           <div className="shrink-0"><Shimura size={42}/></div>
           <div>
-            <div className="text-[10px] text-stone-400">志村（会計士）のワンポイント解説</div>
+            <div className="text-[12px] text-stone-400">志村（会計士）のワンポイント解説</div>
             <div className="text-sm font-medium text-stone-800">{lesson.title}</div>
           </div>
         </div>
-        <div className="py-3 text-[13px] text-stone-700 leading-relaxed min-h-[128px]">
+        <div className="py-3 text-[15px] text-stone-700 leading-relaxed min-h-[128px]">
           {step.heading && <div className="font-medium text-stone-800 mb-1">{step.heading}</div>}
           {step.body}
         </div>
@@ -28,7 +28,7 @@ export default function Lesson({ lesson, onClose }) {
             {steps.map((_, k) => (
               <span key={k} className={"w-1.5 h-1.5 rounded-full transition-colors "+(k===i?"bg-amber-600":"bg-stone-200")}/>
             ))}
-            <span className="text-[10px] text-stone-400 ml-1">{i+1}/{steps.length}</span>
+            <span className="text-[12px] text-stone-400 ml-1">{i+1}/{steps.length}</span>
           </div>
           <div className="flex gap-2">
             {i>0 && <button onClick={()=>setI(i-1)} className="text-sm text-stone-500 px-3 py-1.5">戻る</button>}
@@ -46,7 +46,7 @@ export default function Lesson({ lesson, onClose }) {
 export function InfoButton({ onClick, label = "解説" }) {
   return (
     <button onClick={onClick}
-      className="inline-flex items-center gap-1 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1 hover:bg-amber-100 transition-colors">
+      className="inline-flex items-center gap-1 text-[13px] text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1 hover:bg-amber-100 transition-colors">
       <span className="font-bold">?</span>{label}
     </button>
   );

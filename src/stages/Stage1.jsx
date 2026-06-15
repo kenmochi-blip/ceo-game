@@ -106,7 +106,7 @@ export default function Stage1() {
         <p className="text-sm text-stone-500">ステージ1 ― 個人事業主編</p>
       </div>
       <Talk who="sakura">会社を辞めて、念願のカフェ「<b>ラ・ブリーズ</b>」を開くんだ。貯金は<b>{yen(START_CASH)}</b>（うち100万は両親からの開業祝い）。うまくやっていけるかな…。一緒に経営してくれよ。</Talk>
-      <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200 text-[12px] text-stone-500 leading-relaxed">
+      <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200 text-[14px] text-stone-500 leading-relaxed">
         ・<b className="text-stone-700">資金ショートせず1年（12ヶ月）を生き延びればクリア</b><br/>
         ・年間利益で評価が★1〜★3に上がります<br/>
         ・毎月の判断で売上・利益が動きます
@@ -163,7 +163,7 @@ export default function Stage1() {
             </div>
             <input type="range" min="50000" max="350000" step="50000" value={draw}
               onChange={e=>setDraw(parseInt(e.target.value))} className="w-full mt-1"/>
-            <div className="flex justify-between text-[11px] text-stone-400"><span>切り詰める</span><span>余裕</span></div>
+            <div className="flex justify-between text-[13px] text-stone-400"><span>切り詰める</span><span>余裕</span></div>
           </div>
         </div>
         <Btn onClick={settleMonth}>{MOS[month-1]}月を営業する →</Btn>
@@ -195,13 +195,13 @@ export default function Stage1() {
           </div>
           <AN value={cur.sales} className="text-3xl font-medium text-stone-800 block"/>
           <div className="mt-2"><Spark data={history.map(h=>({m:h.m,v:h.sales}))} color="#16a34a"/></div>
-          <div className="text-[10px] text-stone-400 text-center -mt-1">売上高の推移</div>
+          <div className="text-[12px] text-stone-400 text-center -mt-1">売上高の推移</div>
         </div>
         <div className="grid grid-cols-2 gap-2 mt-2">
           <div className="bg-white rounded-xl p-3 border border-stone-200">
             <div className="flex justify-between items-baseline">
               <span className="text-xs text-stone-500">客数</span>
-              <span className="text-[10px]">{prev&&<Diff cur={cur.customers} prev={prev.customers} unit="人"/>}</span>
+              <span className="text-[12px]">{prev&&<Diff cur={cur.customers} prev={prev.customers} unit="人"/>}</span>
             </div>
             <div className="text-xl font-medium text-stone-800">{cur.customers}<span className="text-xs text-stone-500">人</span></div>
             <Spark data={history.map(h=>({m:h.m,v:h.customers}))} color="#0ea5e9" height={32}/>
@@ -209,7 +209,7 @@ export default function Stage1() {
           <div className="bg-white rounded-xl p-3 border border-stone-200">
             <div className="flex justify-between items-baseline">
               <span className="text-xs text-stone-500">平均客単価</span>
-              <span className="text-[10px]">{prev&&<Diff cur={cur.unit} prev={prev.unit}/>}</span>
+              <span className="text-[12px]">{prev&&<Diff cur={cur.unit} prev={prev.unit}/>}</span>
             </div>
             <div className="text-xl font-medium text-stone-800">{yen(cur.unit)}</div>
             <Spark data={history.map(h=>({m:h.m,v:h.unit}))} color="#f59e0b" height={32}/>
@@ -239,9 +239,9 @@ export default function Stage1() {
       {/* PL */}
       <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200">
         <div className="text-xs text-stone-500 mb-2">損益計算書（報告式）</div>
-        <table className="w-full text-[11px] border-collapse">
+        <table className="w-full text-[13px] border-collapse">
           <thead>
-            <tr className="text-[10px] text-stone-400 border-b border-stone-100">
+            <tr className="text-[12px] text-stone-400 border-b border-stone-100">
               <th className="text-left font-normal pb-1">科目</th>
               <th className="text-right font-normal pb-1 w-[38%]">単月（前月比）</th>
               <th className="text-right font-normal pb-1 w-[22%]">累計</th>
@@ -251,7 +251,7 @@ export default function Stage1() {
             <PL2 label="売上高" m={cur.sales} pm={prev?prev.sales:null} y={yearSales} bold/>
             <PL2 label="売上原価" m={-cur.cogs} pm={prev?-prev.cogs:null} y={-yearCost} indent/>
             <PL2 label="売上総利益" m={cur.gross} pm={prev?prev.gross:null} y={yearSales-yearCost} sub/>
-            <tr><td colSpan={3} className="text-[10px] text-stone-400 pt-1">販売費及び一般管理費</td></tr>
+            <tr><td colSpan={3} className="text-[12px] text-stone-400 pt-1">販売費及び一般管理費</td></tr>
             <PL2 label="家賃" m={-cur.rent} pm={prev?-prev.rent:null} y={-yearRent} indent2/>
             <PL2 label="リース料" m={-cur.lease} pm={prev?-prev.lease:null} y={-yearLease} indent2/>
             <PL2 label="水道光熱費" m={-cur.util} pm={prev?-prev.util:null} y={-yearUtil} indent2/>
@@ -269,7 +269,7 @@ export default function Stage1() {
         <div className="h-1.5 bg-stone-100 rounded-full mt-2 overflow-hidden">
           <div className="h-full bg-amber-400 rounded-full transition-all duration-700" style={{width:Math.max(0,Math.min(100,yearProfit/TARGET_PROFIT*100))+"%"}}></div>
         </div>
-        <div className="text-[10px] text-stone-400 mt-1.5">クリア条件は「資金ショートせず12ヶ月完走」。利益は★の数に反映されます。</div>
+        <div className="text-[12px] text-stone-400 mt-1.5">クリア条件は「資金ショートせず12ヶ月完走」。利益は★の数に反映されます。</div>
       </div>
       <Btn onClick={afterSheets}>{month>=MONTHS?"結果を見る →":`${MOS[month%12]}月へ進む →`}</Btn>
       <Lesson lesson={lessonId?LESSONS[lessonId]:null} onClose={()=>setLessonId(null)}/>
@@ -303,7 +303,7 @@ export default function Stage1() {
         <Row label="最終現金（店）" val={yen(cash)} red={cash<0}/>
       </div>
       {!bankrupt&&(
-        <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[11px] text-stone-500 leading-relaxed">
+        <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-500 leading-relaxed">
           <div className="text-stone-600 font-medium mb-1">★評価のしくみ</div>
           ★ 12ヶ月を生き延びた（クリア）<br/>
           ★★ 年間黒字を達成<br/>
