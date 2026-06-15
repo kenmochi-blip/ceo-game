@@ -1,5 +1,5 @@
-// 堀田実史（公認会計士・税理士）のSVGキャラクター
-export default function Hotta({ size = 64 }) {
+// 志村遥（公認会計士・税理士）のSVGキャラクター
+export default function Shimura({ size = 64 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 100 100">
       <circle cx="50" cy="50" r="48" fill="#e8eef5"/>

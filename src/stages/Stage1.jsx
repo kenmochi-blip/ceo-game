@@ -101,10 +101,10 @@ export default function Stage1() {
         <h1 className="text-xl font-medium text-stone-800 mt-2">朝のラテ</h1>
         <p className="text-sm text-stone-500">ステージ1 ― 個人事業主編</p>
       </div>
-      <Talk who="sakura">会社を辞めて、念願のカフェを開くんだ。貯金は<b>{yen(START_CASH)}</b>。うまくやっていけるかな…。一緒に経営してくれよ。</Talk>
+      <Talk who="sakura">会社を辞めて、念願のカフェ「<b>ラ・ブリーズ</b>」を開くんだ。貯金は<b>{yen(START_CASH)}</b>（うち100万は両親からの開業祝い）。うまくやっていけるかな…。一緒に経営してくれよ。</Talk>
       <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200 text-[12px] text-stone-500 leading-relaxed">
-        ・現金が尽きたらゲームオーバー<br/>
-        ・1年で <b className="text-stone-700">年間利益 {yen(TARGET_PROFIT)}</b> 達成でクリア<br/>
+        ・<b className="text-stone-700">資金ショートせず1年（12ヶ月）を生き延びればクリア</b><br/>
+        ・年間利益で評価が★1〜★3に上がります<br/>
         ・毎月の判断で売上・利益が動きます
       </div>
       <Btn onClick={()=>setStep("setup")}>開業の準備をする →</Btn>
@@ -117,14 +117,14 @@ export default function Stage1() {
     return (
       <Shell>
         <h2 className="text-lg font-medium text-stone-800 pt-2">開業準備</h2>
-        <Talk who="hotta">はじめまして、会計士の堀田です。物件は居抜き、マシンはリース。<b>大きな買い物をせずに始めるのは賢い</b>ですよ。</Talk>
+        <Talk who="shimura">創業セミナーでお会いした会計士の志村です。物件は居抜き、マシンはリース。<b>大きな買い物をせずに始めるのは賢い</b>ですよ。</Talk>
         <div className="bg-stone-50 rounded-xl p-3 mt-3 border border-stone-200">
           <Row label="開業前の貯金" val={yen(START_CASH)}/>
           <Row label="初期費用（支払い）" val={"−"+yen(SETUP_TOTAL)} red/>
           <div className="border-t border-stone-200 my-1"></div>
           <Row label="開業後の現金" val={yen(pvC)} bold/>
         </div>
-        <Talk who="hotta">これが、お店のスタート資金です。ここから毎月、売上が入り、家賃や仕入れ、あなたの生活費が出ていく。<b>黒字でも、生活費を取りすぎればお店の現金は減ります</b>。まずは利益と現金を、しっかり見ていきましょう。</Talk>
+        <Talk who="shimura">これが、お店のスタート資金です。ここから毎月、売上が入り、家賃や仕入れ、あなたの生活費が出ていく。<b>黒字でも、生活費を取りすぎればお店の現金は減ります</b>。まずは利益と現金を、しっかり見ていきましょう。</Talk>
         <Btn onClick={doSetup}>開業する →</Btn>
       </Shell>
     );
@@ -192,7 +192,7 @@ export default function Stage1() {
     );
   }
 
-  // ===== Reveal（結果＋堀田コメント） =====
+  // ===== Reveal（結果＋志村コメント） =====
   if(step==="reveal") {
     let msg;
     if(cash<0) msg=<>現金が尽きました…。利益が出ていても現金が回らなければ事業は止まる。これが最初の壁です。</>;
@@ -240,7 +240,7 @@ export default function Stage1() {
           <div className="border-t border-stone-200 my-1"></div>
           <Row label="現金の増減" val={(lastFlow>=0?"+":"−")+yen(Math.abs(lastFlow))} bold red={lastFlow<0}/>
         </div>
-        <Talk who="hotta">{msg}</Talk>
+        <Talk who="shimura">{msg}</Talk>
         <Btn onClick={()=>setStep("sheets")}>決算書を見る →</Btn>
       </Shell>
     );
@@ -277,48 +277,67 @@ export default function Stage1() {
           </tbody>
         </table>
       </div>
-      {/* 進捗 */}
+      {/* 進捗（年間利益は★評価。クリア条件ではない） */}
       <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200">
         <div className="flex justify-between text-xs text-stone-500">
-          <span>年間利益クリア目標</span>
+          <span>年間利益（★評価・おまけ）</span>
           <span><AN value={yearProfit} className={yearProfit>=TARGET_PROFIT?"text-green-600 font-medium":"text-stone-700 font-medium"}/> / {yen(TARGET_PROFIT)}</span>
         </div>
         <div className="h-1.5 bg-stone-100 rounded-full mt-2 overflow-hidden">
           <div className="h-full bg-amber-400 rounded-full transition-all duration-700" style={{width:Math.max(0,Math.min(100,yearProfit/TARGET_PROFIT*100))+"%"}}></div>
         </div>
+        <div className="text-[10px] text-stone-400 mt-1.5">クリア条件は「資金ショートせず12ヶ月完走」。利益は★の数に反映されます。</div>
       </div>
       <Btn onClick={afterSheets}>{month>=MONTHS?"結果を見る →":`${MOS[month%12]}月へ進む →`}</Btn>
     </Shell>
   );
 
   // ===== Result =====
-  const cleared=cash>=0&&yearProfit>=TARGET_PROFIT;
+  // クリア条件は「資金ショートせず12ヶ月完走」。利益は★1〜3の評価（おまけ）。
   const bankrupt=cash<0;
+  const cleared=!bankrupt;
+  // ★評価：完走=★1、年間黒字=★2、目標利益達成=★3
+  const stars=bankrupt?0:yearProfit>=TARGET_PROFIT?3:yearProfit>0?2:1;
   const incomeTax=!bankrupt?Math.max(0,Math.round(yearProfit*0.15)):0;
   return (
     <Shell>
       <div className="text-center pt-6">
         <Sakura size={88} mood={bankrupt?"worried":"happy"}/>
         <h2 className="text-lg font-medium text-stone-800 mt-2">
-          {bankrupt?"資金ショート…":cleared?"1年目クリア！":"1年を生き延びた"}
+          {bankrupt?"資金ショート…":"1年目クリア！"}
         </h2>
+        {!bankrupt&&(
+          <div className="text-2xl mt-1 tracking-widest" aria-label={`星${stars}つ`}>
+            <span className="text-amber-400">{"★".repeat(stars)}</span>
+            <span className="text-stone-300">{"★".repeat(3-stars)}</span>
+          </div>
+        )}
       </div>
       <div className="bg-white rounded-xl p-4 mt-4 border border-stone-200">
         <Row label="年間売上" val={yen(yearSales)}/>
         <Row label="年間利益" val={yen(yearProfit)} bold red={yearProfit<0}/>
         <Row label="最終現金（店）" val={yen(cash)} red={cash<0}/>
       </div>
-      {!bankrupt&&<Talk who="hotta">確定申告です。今年の税金（概算）は<b>約{yen(incomeTax)}</b>。所得税・住民税・国保・国民年金など。<b>稼ぐほど累進で重くなります。</b></Talk>}
-      <Talk who={bankrupt?"hotta":"sakura"}>
+      {!bankrupt&&(
+        <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[11px] text-stone-500 leading-relaxed">
+          <div className="text-stone-600 font-medium mb-1">★評価のしくみ</div>
+          ★ 12ヶ月を生き延びた（クリア）<br/>
+          ★★ 年間黒字を達成<br/>
+          ★★★ 年間利益 {yen(TARGET_PROFIT)} を達成
+        </div>
+      )}
+      {!bankrupt&&<Talk who="shimura">確定申告です。今年の税金（概算）は<b>約{yen(incomeTax)}</b>。所得税・住民税・国保・国民年金など。<b>稼ぐほど累進で重くなります。</b></Talk>}
+      <Talk who={bankrupt?"shimura":"sakura"}>
         {bankrupt?<>現金が尽きました。もう一度、挑戦しましょう。</>
-        :cleared?<>やった、目標達成だ！…でも税金、けっこう重いな。堀田さん、会社にしたら変わるって本当?</>
-        :<>潰れずに1年やりきった。来年こそ目標を狙うぞ。</>}
+        :stars===3?<>やった、目標達成だ！…でも税金、けっこう重いな。志村さん、会社にしたら変わるって本当?</>
+        :stars===2?<>潰れずに黒字でやりきった！次は利益{yen(TARGET_PROFIT)}の★★★を狙いたいな。</>
+        :<>なんとか1年、生き延びた…！次はちゃんと利益を残すぞ。</>}
       </Talk>
       {cleared&&(
         <div className="bg-stone-800 text-white rounded-xl p-4 mt-3 text-sm leading-relaxed">
           <div className="text-amber-300 text-xs mb-1">🔓 NEXT STAGE</div>
-          ステージ2「法人成り」が見えてきた。<br/>
-          <span className="text-stone-300 text-xs">資本金・役員報酬・法人税…そして会社の財産を映す「BS（貸借対照表）」が、ここから姿を現す。</span>
+          ステージ2「1年目を生き延びる」「先行投資と回収」を経て、やがて「法人成り」へ。<br/>
+          <span className="text-stone-300 text-xs">会社の財産を映す「BS（貸借対照表）」は、法人成りで初めて姿を現す。</span>
         </div>
       )}
       <Btn onClick={restart}>もう一度プレイする ↺</Btn>
