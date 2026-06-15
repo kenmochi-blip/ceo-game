@@ -14,6 +14,8 @@ import Row from "../components/ui/Row";
 import Choice from "../components/ui/Choice";
 import Diff from "../components/ui/Diff";
 import PL2 from "../components/ui/PL2";
+import Lesson, { InfoButton } from "../components/ui/Lesson";
+import { LESSONS } from "./stage1Lessons";
 
 // ステージ1：個人事業主編
 export default function Stage1() {
@@ -36,6 +38,13 @@ export default function Stage1() {
   const [price, setPrice] = useState(2);
   const [ad, setAd] = useState(0);
   const [draw, setDraw] = useState(150000);
+  // チュートリアル解説：表示中のlesson IDと、既読IDの集合
+  const [lessonId, setLessonId] = useState(null);
+  const [seen, setSeen] = useState(() => new Set());
+
+  // 初回到達時のみ自動表示。既読なら開かない。[?解説]からはopenLessonで強制表示。
+  const autoLesson = id => { if (!seen.has(id)) { setSeen(s => new Set(s).add(id)); setLessonId(id); } };
+  const openLesson = id => setLessonId(id);
 
   const yearFixed = yearRent+yearLease+yearUtil+yearAd;
   const yearProfit = yearSales-yearCost-yearFixed;
@@ -43,6 +52,7 @@ export default function Stage1() {
   const doSetup = () => {
     setCash(START_CASH-SETUP_TOTAL);
     setStep("plan");
+    autoLesson("plan");
   };
 
   const settleMonth = () => {
@@ -69,10 +79,13 @@ export default function Stage1() {
     setYearAd(y=>y+adCost);
     setLastFlow(flow); setLastProfit(profit); setLastDraw(draw);
     setStep("reveal");
+    if(flow>=0||cash+flow>=0) autoLesson("reveal");
   };
 
+  const goSheets = () => { setStep("sheets"); autoLesson("sheets"); };
+
   const afterSheets = () => {
-    if(cash<0||month>=MONTHS){ setStep("result"); return; }
+    if(cash<0||month>=MONTHS){ setStep("result"); if(cash>=0) autoLesson("tax"); return; }
     setMonth(m=>m+1); setStep("plan");
   };
 
@@ -98,7 +111,7 @@ export default function Stage1() {
         ・年間利益で評価が★1〜★3に上がります<br/>
         ・毎月の判断で売上・利益が動きます
       </div>
-      <Btn onClick={()=>setStep("setup")}>開業の準備をする →</Btn>
+      <Btn onClick={()=>{setStep("setup"); autoLesson("setup");}}>開業の準備をする →</Btn>
     </Shell>
   );
 
@@ -107,7 +120,10 @@ export default function Stage1() {
     const pvC=START_CASH-SETUP_TOTAL;
     return (
       <Shell>
-        <h2 className="text-lg font-medium text-stone-800 pt-2">開業準備</h2>
+        <div className="flex items-center justify-between pt-2">
+          <h2 className="text-lg font-medium text-stone-800">開業準備</h2>
+          <InfoButton onClick={()=>openLesson("setup")}/>
+        </div>
         <Talk who="shimura">創業セミナーでお会いした会計士の志村です。物件は居抜き、マシンはリース。<b>大きな買い物をせずに始めるのは賢い</b>ですよ。</Talk>
         <div className="bg-stone-50 rounded-xl p-3 mt-3 border border-stone-200">
           <Row label="開業前の貯金" val={yen(START_CASH)}/>
@@ -117,6 +133,7 @@ export default function Stage1() {
         </div>
         <Talk who="shimura">これが、お店のスタート資金です。ここから毎月、売上が入り、家賃や仕入れ、あなたの生活費が出ていく。<b>黒字でも、生活費を取りすぎればお店の現金は減ります</b>。まずは利益と現金を、しっかり見ていきましょう。</Talk>
         <Btn onClick={doSetup}>開業する →</Btn>
+        <Lesson lesson={lessonId?LESSONS[lessonId]:null} onClose={()=>setLessonId(null)}/>
       </Shell>
     );
   }
@@ -125,7 +142,10 @@ export default function Stage1() {
   if(step==="plan") {
     return (
       <Shell cash={cash}>
-        <StepHeader month={month} label={`${MOS[month-1]}月 作戦`}/>
+        <div className="flex items-center justify-between">
+          <StepHeader month={month} label={`${MOS[month-1]}月 作戦`}/>
+          <InfoButton onClick={()=>openLesson("plan")}/>
+        </div>
         <Talk who="sakura">
           {month===1?<>いよいよ開店だ！最初の作戦を決めよう。</>
           :cash<500000?<>うっ、現金が心細い…今月は慎重にいかないと。</>
@@ -147,6 +167,7 @@ export default function Stage1() {
           </div>
         </div>
         <Btn onClick={settleMonth}>{MOS[month-1]}月を営業する →</Btn>
+        <Lesson lesson={lessonId?LESSONS[lessonId]:null} onClose={()=>setLessonId(null)}/>
       </Shell>
     );
   }
@@ -162,7 +183,10 @@ export default function Stage1() {
     else msg=<>今月は赤字でしたね。価格・仕入れ・広告のバランスを見直してみましょう。</>;
     return (
       <Shell cash={cash}>
-        <StepHeader month={month} label={`${MOS[month-1]}月 結果`}/>
+        <div className="flex items-center justify-between">
+          <StepHeader month={month} label={`${MOS[month-1]}月 結果`}/>
+          <InfoButton onClick={()=>openLesson("reveal")} label="売上・利益・現金とは"/>
+        </div>
         <div className="text-center pt-2"><Sakura size={64} mood={cur.profit>=0?"happy":"worried"}/></div>
         <div className="bg-white rounded-xl p-4 mt-2 border border-stone-200">
           <div className="flex justify-between items-baseline">
@@ -199,7 +223,8 @@ export default function Stage1() {
           <Row label="現金の増減" val={(lastFlow>=0?"+":"−")+yen(Math.abs(lastFlow))} bold red={lastFlow<0}/>
         </div>
         <Talk who="shimura">{msg}</Talk>
-        <Btn onClick={()=>setStep("sheets")}>決算書を見る →</Btn>
+        <Btn onClick={goSheets}>決算書を見る →</Btn>
+        <Lesson lesson={lessonId?LESSONS[lessonId]:null} onClose={()=>setLessonId(null)}/>
       </Shell>
     );
   }
@@ -207,7 +232,10 @@ export default function Stage1() {
   // ===== Sheets（PLのみ。BSは法人成り以降で登場） =====
   if(step==="sheets") return (
     <Shell cash={cash}>
-      <StepHeader month={month} label={`${MOS[month-1]}月 決算書`}/>
+      <div className="flex items-center justify-between">
+        <StepHeader month={month} label={`${MOS[month-1]}月 決算書`}/>
+        <InfoButton onClick={()=>openLesson("sheets")} label="PLの読み方"/>
+      </div>
       {/* PL */}
       <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200">
         <div className="text-xs text-stone-500 mb-2">損益計算書（報告式）</div>
@@ -244,6 +272,7 @@ export default function Stage1() {
         <div className="text-[10px] text-stone-400 mt-1.5">クリア条件は「資金ショートせず12ヶ月完走」。利益は★の数に反映されます。</div>
       </div>
       <Btn onClick={afterSheets}>{month>=MONTHS?"結果を見る →":`${MOS[month%12]}月へ進む →`}</Btn>
+      <Lesson lesson={lessonId?LESSONS[lessonId]:null} onClose={()=>setLessonId(null)}/>
     </Shell>
   );
 
@@ -281,7 +310,12 @@ export default function Stage1() {
           ★★★ 年間利益 {yen(TARGET_PROFIT)} を達成
         </div>
       )}
-      {!bankrupt&&<Talk who="shimura">確定申告です。今年の税金（概算）は<b>約{yen(incomeTax)}</b>。所得税・住民税・国保・国民年金など。<b>稼ぐほど累進で重くなります。</b></Talk>}
+      {!bankrupt&&(
+        <>
+          <div className="flex justify-end mt-3"><InfoButton onClick={()=>openLesson("tax")} label="確定申告とは"/></div>
+          <Talk who="shimura">確定申告です。今年の税金（概算）は<b>約{yen(incomeTax)}</b>。所得税・住民税・国保・国民年金など。<b>稼ぐほど累進で重くなります。</b></Talk>
+        </>
+      )}
       <Talk who={bankrupt?"shimura":"sakura"}>
         {bankrupt?<>現金が尽きました。もう一度、挑戦しましょう。</>
         :stars===3?<>やった、目標達成だ！…でも税金、けっこう重いな。志村さん、会社にしたら変わるって本当?</>
@@ -296,6 +330,7 @@ export default function Stage1() {
         </div>
       )}
       <Btn onClick={restart}>もう一度プレイする ↺</Btn>
+      <Lesson lesson={lessonId?LESSONS[lessonId]:null} onClose={()=>setLessonId(null)}/>
     </Shell>
   );
 }
