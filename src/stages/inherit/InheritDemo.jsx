@@ -364,7 +364,7 @@ export default function InheritDemo() {
             </>
           )}
 
-          {lastResult && seenCashLesson && (
+          {lastResult && (
             <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200">
               <div className="text-xs text-stone-500 mb-1">貸借対照表（簡易版）</div>
               <Row label="現金" val={yen(cash)} />
