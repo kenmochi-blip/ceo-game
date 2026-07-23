@@ -9,6 +9,7 @@ import {
 } from "./data";
 import { TAX_TOPICS } from "./taxTopics";
 import BSDiagram from "./BSDiagram";
+import PLDiagram from "./PLDiagram";
 import { Player, Mother, Banker, Staff } from "./characters";
 import Shimura from "../../components/characters/Shimura";
 import TalkBox from "./TalkBox";
@@ -64,6 +65,7 @@ export default function InheritDemo() {
   const [baselineMonth, setBaselineMonth] = useState(null);
 
   const [introExplainChoice, setIntroExplainChoice] = useState(null);
+  const [noteOpenKey, setNoteOpenKey] = useState(null);
 
   const [taxMode, setTaxMode] = useState("menu");
   const [taxTopic, setTaxTopic] = useState(null);
@@ -112,7 +114,7 @@ export default function InheritDemo() {
     setStaffCount(STAFF_COUNT); setExtraSales(0); setExtraLabor(0);
     setSeenStaffEvent(false); setStaffEventChoice(null); setStaffAsked([]);
     setSeenBaseline(false); setBaselineAsked([]); setBaselineMonth(null);
-    setIntroExplainChoice(null);
+    setIntroExplainChoice(null); setNoteOpenKey(null);
     setTaxMode("menu"); setTaxTopic(null); setLessonsRead([]); setReadThisMonth(0);
   };
 
@@ -256,6 +258,7 @@ export default function InheritDemo() {
         <LocationCard icon="🏠" title={STORE_NAME} subtitle="現場の様子を見る" onClick={goStore} />
         <LocationCard icon="📋" title="志村税理士事務所" subtitle="決算書を見る・経営の話を相談する" onClick={goTax} />
         <LocationCard icon="👩" title="母に相談する" subtitle="困ったときのヒント" onClick={() => setScreen("mother")} />
+        <LocationCard icon="📔" title="ノートを見返す" subtitle="これまで分かったことを振り返る" onClick={() => { setNoteOpenKey(null); setScreen("notebook"); }} />
       </div>
 
       {history.length === 0 && (
@@ -301,7 +304,7 @@ export default function InheritDemo() {
                 <TalkBox name="チーフスタイリスト" avatar={<Staff size={52} />}>
                   これで一通り、お店の状況が分かりましたね。
                 </TalkBox>
-                <button onClick={() => { setSeenBaseline(true); setBaselineMonth(month); }} className="text-[13px] text-amber-700 mt-2">わかった →</button>
+                <button onClick={() => { setSeenBaseline(true); setBaselineMonth(month); setStoreMode("recap"); }} className="text-[13px] text-amber-700 mt-2">わかった →</button>
               </>
             )}
           </>
@@ -368,7 +371,7 @@ export default function InheritDemo() {
                   {staffEventChoice === "reckless" && <>捌ききれずお客様が離れてしまい、見込んでいたほどの上乗せにはならず、来月の売上は<b>+{yen(50000)}</b>にとどまりそうです。因数分解してから決めるべきでしたね。</>}
                   {staffEventChoice === "hold" && <>今回は現状維持です。数字がもう少し落ち着いてから、また検討しましょう。</>}
                 </div>
-                <button onClick={() => setSeenStaffEvent(true)} className="text-[13px] text-amber-700 mt-2">わかった →</button>
+                <button onClick={() => { setSeenStaffEvent(true); setStoreMode("recap"); }} className="text-[13px] text-amber-700 mt-2">わかった →</button>
               </>
             )}
           </>
@@ -436,6 +439,12 @@ export default function InheritDemo() {
               <Row label="経常利益" val={manYenRow(lastResult.ordinary, prev?.ordinary)} bold red={lastResult.ordinary < 0} />
               <div className="border-t border-stone-300 my-1" />
               <Row label="当期純利益" val={manYenRow(lastResult.netProfit, prev?.netProfit)} bold red={lastResult.netProfit < 0} />
+              <PLDiagram
+                cogs={lastResult.cogs}
+                sga={lastResult.rent + lastResult.labor + lastResult.executiveComp + lastResult.otherFixed + lastResult.depreciation}
+                interest={lastResult.interest}
+                sales={lastResult.sales}
+              />
             </div>
           )}
 
@@ -579,6 +588,87 @@ export default function InheritDemo() {
         )}
 
         <Btn onClick={() => setTaxMode("menu")}>← 戻る</Btn>
+      </Shell>
+    );
+  }
+
+  // ===== ノート（これまで分かったことの振り返り） =====
+  if (screen === "notebook") {
+    const knownBaseline = BASELINE_QUESTIONS.filter(q => baselineAsked.includes(q.key));
+    const knownMenu = STAFF_QUESTIONS.filter(q => staffAsked.includes(q.key));
+    const readTopics = lessonsRead.map(key => TAX_TOPICS.find(t => t.key === key)).filter(Boolean);
+    const nothingYet = knownBaseline.length === 0 && knownMenu.length === 0 && readTopics.length === 0 && !seenCashLesson;
+
+    const toggle = (key) => setNoteOpenKey(k => (k === key ? null : key));
+
+    return (
+      <Shell cash={cash} cashLabel={CASH_LABEL} transitioning={transitioning}>
+        <div className="flex items-center justify-between pt-1">
+          <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-md">ノート</span>
+          <span className="text-sm text-stone-500">{month}ヶ月目</span>
+        </div>
+
+        {nothingYet && (
+          <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200 text-sm text-stone-600">
+            まだ何もメモがありません。お店や志村さんのところで、いろいろ聞いてみましょう。
+          </div>
+        )}
+
+        {knownBaseline.length > 0 && (
+          <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200">
+            <div className="text-xs text-stone-500 mb-1">📌 お店について分かっていること</div>
+            {knownBaseline.map(q => <Row key={q.key} label={q.q.replace("を聞く", "")} val={q.a} />)}
+          </div>
+        )}
+
+        {knownMenu.length > 0 && (
+          <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200">
+            <div className="text-xs text-stone-500 mb-1">📌 新メニューの相談で聞いたこと</div>
+            {knownMenu.map(q => <Row key={q.key} label={q.q.replace("を聞く", "")} val={q.a} />)}
+            {staffEventChoice && (
+              <div className="text-sm text-stone-600 mt-1 pt-1 border-t border-stone-100">
+                決めたこと：{staffEventChoice === "hire" && "スタッフを1人増やして始めた"}
+                {staffEventChoice === "reckless" && "人を増やさずにそのまま始めた"}
+                {staffEventChoice === "hold" && "今回は見送った"}
+              </div>
+            )}
+          </div>
+        )}
+
+        {seenCashLesson && (
+          <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200">
+            <div className="text-xs text-stone-500 mb-1">📌 利益とキャッシュについて</div>
+            <div className="text-sm text-stone-600 leading-relaxed">
+              銀行への返済のうち「元本」はPL（損益計算書）には出てこない。利息だけが費用として計上される。だから利益が出ていても、元本の返済の分だけ現金は減っていく。
+            </div>
+          </div>
+        )}
+
+        {readTopics.length > 0 && (
+          <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200">
+            <div className="text-xs text-stone-500 mb-1">📌 志村さんに教わったこと</div>
+            <div className="flex flex-col gap-1.5">
+              {readTopics.map(t => (
+                <div key={t.key}>
+                  <button onClick={() => toggle(t.key)}
+                    className="w-full text-left text-sm text-stone-700 py-1 flex items-center justify-between">
+                    <span>{t.label}</span>
+                    <span className="text-stone-400 text-xs">{noteOpenKey === t.key ? "▲" : "▼"}</span>
+                  </button>
+                  {noteOpenKey === t.key && (
+                    <div className="text-sm text-stone-600 leading-relaxed pb-2 pl-1">
+                      {typeof t.answer === "function"
+                        ? t.answer({ totalAssets, liabilities: loanBalance, equity: totalEquity, ratio: equityRatio })
+                        : t.answer}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <Btn onClick={() => setScreen("hub")}>← 本社に戻る</Btn>
       </Shell>
     );
   }
