@@ -12,8 +12,8 @@ export default function PLDiagram({ cogs, sga, interest, sales }) {
 
   return (
     <div className="mt-2">
-      <div className="flex gap-3" style={{ height: 190 }}>
-        <div className="w-1/2 flex flex-col-reverse border border-stone-300 rounded overflow-hidden">
+      <div className="flex border border-stone-300 rounded overflow-hidden" style={{ height: 190 }}>
+        <div className="w-1/2 flex flex-col-reverse border-r border-stone-300">
           <div style={{ height: pct(cogs), backgroundColor: "#2f5fa8" }}
             className="flex items-center justify-center text-center text-[11px] text-white leading-tight px-1 overflow-hidden">
             {rawPct(cogs) >= MIN_PCT * 0.8 && <>売上原価<br />{manYen(cogs)}</>}
@@ -29,7 +29,7 @@ export default function PLDiagram({ cogs, sga, interest, sales }) {
             </div>
           )}
         </div>
-        <div className="w-1/2 flex flex-col-reverse border border-stone-300 rounded overflow-hidden">
+        <div className="w-1/2 flex flex-col-reverse">
           <div style={{ height: pct(sales), backgroundColor: "#e5533d" }}
             className="flex items-center justify-center text-center text-[11px] text-white leading-tight px-1 overflow-hidden">
             売上高<br />{manYen(sales)}

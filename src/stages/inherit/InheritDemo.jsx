@@ -66,6 +66,7 @@ export default function InheritDemo() {
 
   const [introExplainChoice, setIntroExplainChoice] = useState(null);
   const [noteOpenKey, setNoteOpenKey] = useState(null);
+  const [plViewMode, setPlViewMode] = useState("month");
 
   const [taxMode, setTaxMode] = useState("menu");
   const [taxTopic, setTaxTopic] = useState(null);
@@ -114,7 +115,7 @@ export default function InheritDemo() {
     setStaffCount(STAFF_COUNT); setExtraSales(0); setExtraLabor(0);
     setSeenStaffEvent(false); setStaffEventChoice(null); setStaffAsked([]);
     setSeenBaseline(false); setBaselineAsked([]); setBaselineMonth(null);
-    setIntroExplainChoice(null); setNoteOpenKey(null);
+    setIntroExplainChoice(null); setNoteOpenKey(null); setPlViewMode("month");
     setTaxMode("menu"); setTaxTopic(null); setLessonsRead([]); setReadThisMonth(0);
   };
 
@@ -407,6 +408,15 @@ export default function InheritDemo() {
     if (taxMode === "statements") {
       const showQuiz = history.length > 0 && !seenCashLesson && prediction === null;
       const showReveal = history.length > 0 && (seenCashLesson || prediction !== null);
+      const PL_FIELDS = ["sales", "cogs", "gross", "rent", "labor", "executiveComp", "otherFixed", "depreciation", "operating", "interest", "ordinary", "netProfit"];
+      const cumulative = history.reduce((acc, h) => {
+        PL_FIELDS.forEach(f => { acc[f] = (acc[f] || 0) + h[f]; });
+        return acc;
+      }, {});
+      const plRow = (field) => plViewMode === "month"
+        ? manYenRow(lastResult ? lastResult[field] : 0, prev ? prev[field] : null)
+        : manYen(cumulative[field] || 0);
+      const plSource = plViewMode === "month" ? lastResult : cumulative;
       return (
         <Shell cash={cash} cashLabel={CASH_LABEL} transitioning={transitioning}>
           <div className="flex items-center justify-between pt-1">
@@ -422,28 +432,39 @@ export default function InheritDemo() {
 
           {lastResult && (
             <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200">
-              <div className="text-xs text-stone-500 mb-1">先月（{month - 1}ヶ月目）の損益計算書</div>
-              <Row label="売上高" val={manYenRow(lastResult.sales, prev?.sales)} />
-              <Row label="売上原価" val={"−" + manYenRow(lastResult.cogs, prev?.cogs)} />
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-xs text-stone-500">
+                  {plViewMode === "month" ? `先月（${month - 1}ヶ月目）の損益計算書` : `累計（${history.length}ヶ月間）の損益計算書`}
+                </div>
+                <div className="flex gap-1 text-[11px]">
+                  <button onClick={() => setPlViewMode("month")}
+                    className={"px-2 py-0.5 rounded-full border " + (plViewMode === "month" ? "bg-amber-700 text-white border-amber-700" : "border-stone-200 text-stone-500")}>単月</button>
+                  <button onClick={() => setPlViewMode("cumulative")}
+                    className={"px-2 py-0.5 rounded-full border " + (plViewMode === "cumulative" ? "bg-amber-700 text-white border-amber-700" : "border-stone-200 text-stone-500")}>累計</button>
+                </div>
+              </div>
+              {plViewMode === "month" && <div className="text-[11px] text-stone-400 mb-1">（）内は前月比</div>}
+              <Row label="売上高" val={plRow("sales")} />
+              <Row label="売上原価" val={"−" + plRow("cogs")} />
               <div className="border-t border-stone-300 my-1" />
-              <Row label="売上総利益" val={manYenRow(lastResult.gross, prev?.gross)} bold />
-              <Row label="家賃" val={"−" + manYenRow(lastResult.rent, prev?.rent)} />
-              <Row label="人件費" val={"−" + manYenRow(lastResult.labor, prev?.labor)} />
-              <Row label="役員報酬" val={"−" + manYenRow(lastResult.executiveComp, prev?.executiveComp)} />
-              <Row label="その他固定費" val={"−" + manYenRow(lastResult.otherFixed, prev?.otherFixed)} />
-              <Row label="減価償却費" val={"−" + manYenRow(lastResult.depreciation, prev?.depreciation)} />
+              <Row label="売上総利益" val={plRow("gross")} bold />
+              <Row label="家賃" val={"−" + plRow("rent")} />
+              <Row label="人件費" val={"−" + plRow("labor")} />
+              <Row label="役員報酬" val={"−" + plRow("executiveComp")} />
+              <Row label="その他固定費" val={"−" + plRow("otherFixed")} />
+              <Row label="減価償却費" val={"−" + plRow("depreciation")} />
               <div className="border-t border-stone-300 my-1" />
-              <Row label="営業利益" val={manYenRow(lastResult.operating, prev?.operating)} bold red={lastResult.operating < 0} />
-              <Row label="支払利息" val={"−" + manYenRow(lastResult.interest, prev?.interest)} />
+              <Row label="営業利益" val={plRow("operating")} bold red={plSource.operating < 0} />
+              <Row label="支払利息" val={"−" + plRow("interest")} />
               <div className="border-t border-stone-300 my-1" />
-              <Row label="経常利益" val={manYenRow(lastResult.ordinary, prev?.ordinary)} bold red={lastResult.ordinary < 0} />
+              <Row label="経常利益" val={plRow("ordinary")} bold red={plSource.ordinary < 0} />
               <div className="border-t border-stone-300 my-1" />
-              <Row label="当期純利益" val={manYenRow(lastResult.netProfit, prev?.netProfit)} bold red={lastResult.netProfit < 0} />
+              <Row label="当期純利益" val={plRow("netProfit")} bold red={plSource.netProfit < 0} />
               <PLDiagram
-                cogs={lastResult.cogs}
-                sga={lastResult.rent + lastResult.labor + lastResult.executiveComp + lastResult.otherFixed + lastResult.depreciation}
-                interest={lastResult.interest}
-                sales={lastResult.sales}
+                cogs={plSource.cogs}
+                sga={plSource.rent + plSource.labor + plSource.executiveComp + plSource.otherFixed + plSource.depreciation}
+                interest={plSource.interest}
+                sales={plSource.sales}
               />
             </div>
           )}
@@ -499,7 +520,6 @@ export default function InheritDemo() {
             const prevLoan = loanBalance + lastResult.principal;
             const prevTotalAssets = prevCash + prevFixedBook;
             const prevTotalEquity = CAPITAL_STOCK + prevRetained;
-            const prevEquityRatio = prevTotalAssets > 0 ? (prevTotalEquity / prevTotalAssets) * 100 : 0;
             return (
               <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200">
                 <div className="text-xs text-stone-500 mb-1">貸借対照表（簡易版）</div>
@@ -509,12 +529,15 @@ export default function InheritDemo() {
                 <Row label="資産合計" val={manYenRow(totalAssets, prevTotalAssets)} bold />
                 <div className="mt-2" />
                 <Row label="借入金" val={manYenRow(loanBalance, prevLoan)} />
+                <div className="border-t border-stone-300 my-1" />
+                <Row label="負債合計" val={manYenRow(loanBalance, prevLoan)} bold />
+                <div className="mt-2" />
                 <Row label="資本金" val={manYenRow(CAPITAL_STOCK, CAPITAL_STOCK)} />
                 <Row label="利益剰余金" val={manYenRow(retainedEarnings, prevRetained)} red={retainedEarnings < 0} />
                 <div className="border-t border-stone-300 my-1" />
-                <Row label="負債・純資産合計" val={manYenRow(loanBalance + CAPITAL_STOCK + retainedEarnings, prevLoan + CAPITAL_STOCK + prevRetained)} bold />
+                <Row label="純資産合計" val={manYenRow(totalEquity, prevTotalEquity)} bold />
                 <div className="border-t border-stone-300 my-1" />
-                <Row label="自己資本比率" val={equityRatio.toFixed(1) + "%（" + (equityRatio - prevEquityRatio >= 0 ? "+" : "−") + Math.abs(equityRatio - prevEquityRatio).toFixed(1) + "pt）"} bold />
+                <Row label="負債・純資産合計" val={manYenRow(loanBalance + CAPITAL_STOCK + retainedEarnings, prevLoan + CAPITAL_STOCK + prevRetained)} bold />
                 <BSDiagram totalAssets={totalAssets} liabilities={loanBalance} equity={totalEquity} ratio={equityRatio} />
               </div>
             );
