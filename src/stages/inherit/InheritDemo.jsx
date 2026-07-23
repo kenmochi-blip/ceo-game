@@ -3,7 +3,8 @@ import {
   COMPANY_NAME, STORE_NAME, START_CASH, LOAN_START, ANNUAL_RATE,
   PRINCIPAL_PAYMENT, DRAW_DEFAULT, DRAW_MIN, DRAW_MAX, DRAW_STEP,
   DEMO_MONTHS, yen, manYen, manYenRow, calcMonth,
-  STAFF_COUNT, SERVICE_HOURS_BASE, SERVICE_HOURS_TREATMENT, CURRENT_CUSTOMERS, capacity,
+  STAFF_COUNT, SERVICE_HOURS_BASE, SERVICE_HOURS_TREATMENT, CURRENT_CUSTOMERS, AVG_TICKET,
+  INTEREST_RATIO, capacity, blendedServiceHours,
   HOURS_PER_DAY, DAYS_PER_MONTH, FIXED_ASSETS, CAPITAL_STOCK,
 } from "./data";
 import { TAX_TOPICS } from "./taxTopics";
@@ -18,11 +19,20 @@ import Spark from "../../components/charts/Spark";
 const READS_PER_MONTH = 3;
 const CASH_LABEL = "会社の現預金";
 
-// スタッフに聞ける3つの質問（③の因数分解を対話の中で引き出すため、数字はここでだけ明かす）
+// 初回の店舗ヒアリング（現状把握。ここが終わった翌月からメニュー提案イベントが起きる）
+const BASELINE_QUESTIONS = [
+  { key: "customers", q: "今の客数を聞く", a: `月${CURRENT_CUSTOMERS}人くらいです。` },
+  { key: "unitPrice", q: "客単価を聞く", a: `平均${yen(AVG_TICKET)}くらいです。` },
+  { key: "staffCount", q: "店員数を聞く", a: `スタイリストは${STAFF_COUNT}人です。` },
+  { key: "workDays", q: "営業日数を聞く", a: `月${DAYS_PER_MONTH}日、1日${HOURS_PER_DAY}時間営業しています。` },
+  { key: "cutTime", q: "一人当たりのカット時間を聞く", a: `平均${SERVICE_HOURS_BASE}時間くらいです。` },
+];
+
+// メニュー提案の追加ヒアリング（③の因数分解を対話の中で引き出すため、数字はここでだけ明かす）
 const STAFF_QUESTIONS = [
-  { key: "customers", q: "今の客数を聞く", a: `今は月${CURRENT_CUSTOMERS}人くらいいらっしゃいます。` },
-  { key: "cost", q: "増える費用を聞く", a: "スタッフを1人増やすなら、人件費は月15万円ほど増えそうです。" },
-  { key: "sales", q: "見込める売上を聞く", a: "単価が上がる分、月30万円くらいの上乗せが見込めそうです。" },
+  { key: "cost", q: "追加コストを聞く", a: "スタッフを1人増やすなら、人件費は月15万円ほど増えそうです。" },
+  { key: "timeIncrease", q: "接客時間の伸びを聞く", a: `1人あたりの施術時間が、通常${SERVICE_HOURS_BASE}時間からトリートメント込みで${SERVICE_HOURS_TREATMENT}時間に伸びるみたいです。` },
+  { key: "interestRatio", q: "興味がありそうな客の比率を聞く", a: `肌感ですが、だいたい${Math.round(INTEREST_RATIO * 100)}%くらいのお客様が興味を持ちそうです。` },
 ];
 
 // 「継承」オープンワールド型デモ：本社をハブに、店舗（現場の相談）・志村税理士事務所（決算書・解説）・
@@ -48,6 +58,9 @@ export default function InheritDemo() {
   const [seenStaffEvent, setSeenStaffEvent] = useState(false);
   const [staffEventChoice, setStaffEventChoice] = useState(null);
   const [staffAsked, setStaffAsked] = useState([]);
+  const [seenBaseline, setSeenBaseline] = useState(false);
+  const [baselineAsked, setBaselineAsked] = useState([]);
+  const [baselineMonth, setBaselineMonth] = useState(null);
 
   const [introExplainChoice, setIntroExplainChoice] = useState(null);
 
@@ -65,8 +78,8 @@ export default function InheritDemo() {
   const equityRatio = totalAssets > 0 ? (totalEquity / totalAssets) * 100 : 0;
 
   const goStore = () => {
-    if (history.length === 0) setStoreMode("setup");
-    else if (!seenStaffEvent) setStoreMode("staffEvent");
+    if (!seenBaseline) setStoreMode("baseline");
+    else if (!seenStaffEvent && month > baselineMonth) setStoreMode("staffEvent");
     else setStoreMode("recap");
     setScreen("store");
   };
@@ -97,6 +110,7 @@ export default function InheritDemo() {
     setSeenCashLesson(false); setPrediction(null); setStoreMode(null);
     setStaffCount(STAFF_COUNT); setExtraSales(0); setExtraLabor(0);
     setSeenStaffEvent(false); setStaffEventChoice(null); setStaffAsked([]);
+    setSeenBaseline(false); setBaselineAsked([]); setBaselineMonth(null);
     setIntroExplainChoice(null);
     setTaxMode("menu"); setTaxTopic(null); setLessonsRead([]); setReadThisMonth(0);
   };
@@ -253,10 +267,12 @@ export default function InheritDemo() {
 
   // ===== 店舗（現場の相談） =====
   if (screen === "store") {
+    const baselineAskedAll = baselineAsked.length === BASELINE_QUESTIONS.length;
     const askedAll = staffAsked.length === STAFF_QUESTIONS.length;
+    const avgServiceHours = blendedServiceHours(INTEREST_RATIO);
     const baseCapacity = capacity(staffCount, SERVICE_HOURS_BASE);
-    const treatmentCapacity = capacity(staffCount, SERVICE_HOURS_TREATMENT);
-    const treatmentCapacityWithHire = capacity(staffCount + 1, SERVICE_HOURS_TREATMENT);
+    const treatmentCapacity = capacity(staffCount, avgServiceHours);
+    const treatmentCapacityWithHire = capacity(staffCount + 1, avgServiceHours);
     return (
       <Shell cash={cash} cashLabel={CASH_LABEL} transitioning={transitioning}>
         <div className="flex items-center justify-between pt-1">
@@ -264,10 +280,30 @@ export default function InheritDemo() {
           <span className="text-sm text-stone-500">{month}ヶ月目</span>
         </div>
 
-        {storeMode === "setup" && (
-          <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200 text-sm text-stone-600">
-            まだ営業を始めたばかりです。スタッフたちが迎えてくれました。
-          </div>
+        {storeMode === "baseline" && (
+          <>
+            <TalkBox name="チーフスタイリスト" avatar={<Staff size={52} />}>
+              まだ営業を始めたばかりですね。まずはお店の状況を聞いてみましょうか。
+            </TalkBox>
+            {!baselineAskedAll && (
+              <div className="flex flex-col gap-2 mt-2">
+                {BASELINE_QUESTIONS.map(q => (
+                  baselineAsked.includes(q.key)
+                    ? <TalkBox key={q.key} name="チーフスタイリスト" avatar={<Staff size={44} />}>{q.a}</TalkBox>
+                    : <button key={q.key} onClick={() => setBaselineAsked(a => [...a, q.key])}
+                        className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">{q.q}</button>
+                ))}
+              </div>
+            )}
+            {baselineAskedAll && (
+              <>
+                <TalkBox name="チーフスタイリスト" avatar={<Staff size={52} />}>
+                  これで一通り、お店の状況が分かりましたね。
+                </TalkBox>
+                <button onClick={() => { setSeenBaseline(true); setBaselineMonth(month); }} className="text-[13px] text-amber-700 mt-2">わかった →</button>
+              </>
+            )}
+          </>
         )}
 
         {storeMode === "recap" && (
@@ -302,7 +338,7 @@ export default function InheritDemo() {
                   <div className="text-stone-500 mb-1">聞いた話を数字にしてみると――</div>
                   現在：スタイリスト{staffCount}人 × {HOURS_PER_DAY}時間 × {DAYS_PER_MONTH}日 ÷ 平均{SERVICE_HOURS_BASE}時間 = <b>月{baseCapacity}人</b>まで対応可能（今のお客様は月{CURRENT_CUSTOMERS}人）
                   <div className="border-t border-stone-200 my-2" />
-                  トリートメント込みだと平均施術時間が{SERVICE_HOURS_TREATMENT}時間に伸びるため、上限は<b>月{treatmentCapacity}人</b>に。
+                  興味を持ちそうな{Math.round(INTEREST_RATIO * 100)}%のお客様の施術時間が{SERVICE_HOURS_TREATMENT}時間に伸びるとすると、平均は{avgServiceHours.toFixed(2)}時間。上限は<b>月{treatmentCapacity}人</b>に。
                   {treatmentCapacity < CURRENT_CUSTOMERS
                     ? <> 今のお客様（{CURRENT_CUSTOMERS}人）より<b className="text-red-600">少なくなってしまいます</b>。</>
                     : <> 今のお客様（{CURRENT_CUSTOMERS}人）は何とか対応できそうです。</>}

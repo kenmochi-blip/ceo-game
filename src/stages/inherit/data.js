@@ -35,9 +35,14 @@ export const SERVICE_HOURS_BASE = 1.0;    // 通常メニューの平均施術�
 export const SERVICE_HOURS_TREATMENT = 1.5; // トリートメント込みの平均施術時間
 export const AVG_TICKET = 5000;           // 平均客単価（SALES = AVG_TICKET × 客数）
 export const CURRENT_CUSTOMERS = Math.round(SALES / AVG_TICKET); // 300人/月
+export const INTEREST_RATIO = 0.7;        // トリートメントに興味を持ちそうな客の比率
 
 export const capacity = (staffCount, serviceHours) =>
   Math.floor((staffCount * HOURS_PER_DAY * DAYS_PER_MONTH) / serviceHours);
+
+// 興味を持つ客の割合を加味した、1人あたりの平均施術時間（全員がトリートメントを受けるわけではない）
+export const blendedServiceHours = (interestRatio) =>
+  SERVICE_HOURS_BASE * (1 - interestRatio) + SERVICE_HOURS_TREATMENT * interestRatio;
 
 export const yen = n => (n < 0 ? "▲" : "") + "¥" + Math.round(Math.abs(n)).toLocaleString();
 
