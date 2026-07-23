@@ -64,6 +64,29 @@ export function Mother({ size = 64, mood = "normal" }) {
   );
 }
 
+// チーフスタイリスト（本店スタッフ）
+export function Staff({ size = 64, mood = "normal" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="48" fill="#eaf5f0" />
+      <rect x="43" y="58" width="14" height="12" fill="#e0ac82" />
+      <path d="M27 96 Q27 70 50 69 Q73 70 73 96 Z" fill="#3f7a63" />
+      <rect x="44" y="69" width="12" height="19" fill="#5a9a80" />
+      <circle cx="50" cy="44" r="20" fill="#eec49a" />
+      {/* 後ろで束ねた髪＋おくれ毛 */}
+      <path d="M29 44 Q28 23 50 22 Q72 23 71 44 Q70 32 50 30 Q30 32 29 44 Z" fill="#3a2e26" />
+      <path d="M70 40 Q76 46 72 58" stroke="#3a2e26" strokeWidth="4" fill="none" strokeLinecap="round" />
+      <circle cx="43" cy="45" r="2.2" fill="#2a2118" />
+      <circle cx="57" cy="45" r="2.2" fill="#2a2118" />
+      {mood === "worried" ? (
+        <path d="M44 55 Q50 51 56 55" stroke="#7a4a2a" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+      ) : (
+        <path d="M44 53 Q50 57 56 53" stroke="#7a4a2a" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+      )}
+    </svg>
+  );
+}
+
 // 剱持（銀行担当者）
 export function Banker({ size = 64, mood = "normal" }) {
   return (

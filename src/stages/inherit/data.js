@@ -20,19 +20,33 @@ export const DRAW_STEP = 50000;
 
 export const DEMO_MONTHS = 4;           // このデモで進める月数（4ヶ月後に銀行面談）
 
+// ── 客数の因数分解（③の軽い体験版：スタッフ新メニュー相談イベント用）──
+export const STAFF_COUNT = 2;             // 現在のスタイリスト人数
+export const HOURS_PER_DAY = 8;
+export const DAYS_PER_MONTH = 25;
+export const SERVICE_HOURS_BASE = 1.0;    // 通常メニューの平均施術時間
+export const SERVICE_HOURS_TREATMENT = 1.5; // トリートメント込みの平均施術時間
+export const AVG_TICKET = 5000;           // 平均客単価（SALES = AVG_TICKET × 客数）
+export const CURRENT_CUSTOMERS = Math.round(SALES / AVG_TICKET); // 300人/月
+
+export const capacity = (staffCount, serviceHours) =>
+  Math.floor((staffCount * HOURS_PER_DAY * DAYS_PER_MONTH) / serviceHours);
+
 export const yen = n => (n < 0 ? "▲" : "") + "¥" + Math.round(Math.abs(n)).toLocaleString();
 
-// 1ヶ月分の経営結果を計算する
-export function calcMonth(loanBalance, draw) {
-  const cogs = Math.round(SALES * COGS_RATE);
-  const gross = SALES - cogs;
-  const operating = gross - RENT - LABOR - OTHER_FIXED;
+// 1ヶ月分の経営結果を計算する（extraSales/extraLaborはスタッフイベント等の意思決定による上乗せ分）
+export function calcMonth(loanBalance, draw, extraSales = 0, extraLabor = 0) {
+  const sales = SALES + extraSales;
+  const cogs = Math.round(sales * COGS_RATE);
+  const gross = sales - cogs;
+  const labor = LABOR + extraLabor;
+  const operating = gross - RENT - labor - OTHER_FIXED;
   const interest = Math.round(loanBalance * (ANNUAL_RATE / 12));
   const netProfit = operating - interest;
   const principal = Math.min(PRINCIPAL_PAYMENT, loanBalance);
   const cashChange = netProfit - principal - draw;
   return {
-    sales: SALES, cogs, gross, rent: RENT, labor: LABOR, otherFixed: OTHER_FIXED,
+    sales, cogs, gross, rent: RENT, labor, otherFixed: OTHER_FIXED,
     operating, interest, netProfit, principal, draw, cashChange,
     newLoanBalance: loanBalance - principal,
   };

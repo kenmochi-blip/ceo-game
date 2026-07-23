@@ -3,8 +3,10 @@ import {
   COMPANY_NAME, STORE_NAME, START_CASH, LOAN_START, ANNUAL_RATE,
   PRINCIPAL_PAYMENT, DRAW_DEFAULT, DRAW_MIN, DRAW_MAX, DRAW_STEP,
   DEMO_MONTHS, yen, calcMonth,
+  STAFF_COUNT, SERVICE_HOURS_BASE, SERVICE_HOURS_TREATMENT, CURRENT_CUSTOMERS, capacity,
+  HOURS_PER_DAY, DAYS_PER_MONTH,
 } from "./data";
-import { Player, Mother, Banker } from "./characters";
+import { Player, Mother, Banker, Staff } from "./characters";
 import Shimura from "../../components/characters/Shimura";
 import TalkBox from "./TalkBox";
 import Shell from "../../components/ui/Shell";
@@ -27,13 +29,27 @@ export default function InheritDemo() {
   const [lastResult, setLastResult] = useState(null);
   const [seenCashLesson, setSeenCashLesson] = useState(false);
   const [prediction, setPrediction] = useState(null);
+  const [storeMode, setStoreMode] = useState(null);
+  const [staffCount, setStaffCount] = useState(STAFF_COUNT);
+  const [extraSales, setExtraSales] = useState(0);
+  const [extraLabor, setExtraLabor] = useState(0);
+  const [seenStaffEvent, setSeenStaffEvent] = useState(false);
+  const [staffEventChoice, setStaffEventChoice] = useState(null);
+  const [taxTopic, setTaxTopic] = useState(null);
 
   const monthsUntilReview = DEMO_MONTHS - month + 1;
 
-  const goStore = () => { setPrediction(null); setScreen("store"); };
+  const goStore = () => {
+    setPrediction(null);
+    if (history.length === 0) setStoreMode("setup");
+    else if (!seenCashLesson) setStoreMode("cashLesson");
+    else if (!seenStaffEvent) setStoreMode("staffEvent");
+    else setStoreMode("recap");
+    setScreen("store");
+  };
 
   const advanceMonth = () => {
-    const result = calcMonth(loanBalance, draw);
+    const result = calcMonth(loanBalance, draw, extraSales, extraLabor);
     const newCash = cash + result.cashChange;
     setHistory(h => [...h, { m: month, cash: newCash, ...result }]);
     setLastResult(result);
@@ -48,15 +64,25 @@ export default function InheritDemo() {
   const restart = () => {
     setScreen("title"); setMonth(1); setCash(START_CASH); setLoanBalance(LOAN_START);
     setDraw(DRAW_DEFAULT); setHistory([]); setLastResult(null);
-    setSeenCashLesson(false); setPrediction(null);
+    setSeenCashLesson(false); setPrediction(null); setStoreMode(null);
+    setStaffCount(STAFF_COUNT); setExtraSales(0); setExtraLabor(0);
+    setSeenStaffEvent(false); setStaffEventChoice(null); setTaxTopic(null);
+  };
+
+  const chooseStaffEvent = (choice) => {
+    setStaffEventChoice(choice);
+    if (choice === "hire") { setStaffCount(STAFF_COUNT + 1); setExtraSales(300000); setExtraLabor(150000); }
+    else if (choice === "reckless") { setExtraSales(50000); setExtraLabor(0); }
+    // "hold" は何も変えない
   };
 
   const motherMessage = () => {
     if (history.length === 0) return <>まずは<b>{STORE_NAME}</b>に一度顔を出してみたら？志村さんが遺してくれた資料もあるはずよ。</>;
     if (!seenCashLesson) return <>お店の数字、ちゃんと見てみた？先月の分、まだ確認してないんじゃない？</>;
+    if (!seenStaffEvent) return <>お店のスタッフさん、何か相談したいことがあるみたいだったけど。</>;
     if (draw === DRAW_DEFAULT) return <>生活費、お父さんの頃のままにしてない？一度、本当に必要な額か見直してみたら。</>;
     if (month >= DEMO_MONTHS) return <>そろそろ銀行の剱持さんとの面談ね。準備はいい？</>;
-    return <>数字をちゃんと見ていれば、大きく間違えることはないから。その調子よ。</>;
+    return <>数字をちゃんと見ていれば、大きく間違えることはないから。その調子よ。分からないことがあれば志村さんの事務所にも顔を出してみて。</>;
   };
 
   // ===== Title =====
@@ -132,6 +158,7 @@ export default function InheritDemo() {
       <div className="flex flex-col gap-2 mt-3">
         <LocationCard icon="🏠" title={STORE_NAME} subtitle="今月の様子を確認する・生活費を決める" onClick={goStore} />
         <LocationCard icon="🏦" title="銀行" subtitle="借入の状況を確認する" onClick={() => setScreen("bank")} />
+        <LocationCard icon="📋" title="志村税理士事務所" subtitle="決算書の読み方・経営指標を相談する" onClick={() => { setTaxTopic(null); setScreen("tax"); }} />
         <LocationCard icon="👩" title="母に相談する" subtitle="困ったときのヒント" onClick={() => setScreen("mother")} />
       </div>
 
@@ -145,8 +172,11 @@ export default function InheritDemo() {
 
   // ===== 店舗 =====
   if (screen === "store") {
-    const showQuiz = history.length > 0 && !seenCashLesson && prediction === null;
-    const showReveal = history.length > 0 && (seenCashLesson || prediction !== null);
+    const showQuiz = storeMode === "cashLesson" && prediction === null;
+    const showReveal = storeMode === "cashLesson" && prediction !== null;
+    const baseCapacity = capacity(staffCount, SERVICE_HOURS_BASE);
+    const treatmentCapacity = capacity(staffCount, SERVICE_HOURS_TREATMENT);
+    const treatmentCapacityWithHire = capacity(staffCount + 1, SERVICE_HOURS_TREATMENT);
     return (
       <Shell cash={cash}>
         <div className="flex items-center justify-between pt-1">
@@ -154,13 +184,13 @@ export default function InheritDemo() {
           <span className="text-sm text-stone-500">{month}ヶ月目</span>
         </div>
 
-        {history.length === 0 && (
+        {storeMode === "setup" && (
           <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200 text-sm text-stone-600">
             まだ今月の実績はありません。まずは経営してみましょう。
           </div>
         )}
 
-        {lastResult && (
+        {lastResult && storeMode !== "setup" && (
           <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200">
             <div className="text-xs text-stone-500 mb-1">先月（{month - 1}ヶ月目）の損益計算書</div>
             <Row label="売上高" val={yen(lastResult.sales)} />
@@ -199,18 +229,65 @@ export default function InheritDemo() {
               <div className="border-t border-stone-200 my-1" />
               <Row label="現金の増減" val={(lastResult.cashChange >= 0 ? "+" : "−") + yen(Math.abs(lastResult.cashChange))} bold red={lastResult.cashChange < 0} />
             </div>
-            {prediction !== null && !seenCashLesson && (
-              <TalkBox name="志村（顧問税理士）" avatar={<Shimura size={52} />}>
-                {prediction === "up" && lastResult.cashChange < 0 && <>予想は外れましたね。黒字＝現金が増える、ではないんです。</>}
-                {prediction === "down" && lastResult.cashChange < 0 && <>正解です。</>}
-                {lastResult.cashChange >= 0 && <>今月はプラスでした。</>}
-                {" "}
-                <b>銀行への返済のうち「元本」はPL（損益計算書）には出てきません。</b>
-                利息だけが費用として計上されます。だから利益が出ていても、元本の返済と生活費の分だけ、現金は減っていくんです。
-              </TalkBox>
+            <TalkBox name="志村（顧問税理士）" avatar={<Shimura size={52} />}>
+              {prediction === "up" && lastResult.cashChange < 0 && <>予想は外れましたね。黒字＝現金が増える、ではないんです。</>}
+              {prediction === "down" && lastResult.cashChange < 0 && <>正解です。</>}
+              {lastResult.cashChange >= 0 && <>今月はプラスでした。</>}
+              {" "}
+              <b>銀行への返済のうち「元本」はPL（損益計算書）には出てきません。</b>
+              利息だけが費用として計上されます。だから利益が出ていても、元本の返済と生活費の分だけ、現金は減っていくんです。
+            </TalkBox>
+            <button onClick={() => setSeenCashLesson(true)} className="text-[13px] text-amber-700 mt-2">わかった →</button>
+          </>
+        )}
+
+        {storeMode === "staffEvent" && (
+          <>
+            <TalkBox name="チーフスタイリスト" avatar={<Staff size={52} mood={staffEventChoice === "reckless" ? "worried" : "normal"} />}>
+              {staffEventChoice === null && <>お客様からの要望も多いんです。<b>トリートメントメニュー</b>、始めてみませんか？単価が上がると思います。</>}
+              {staffEventChoice === "hire" && <>ありがとうございます！これで無理なく対応できます。</>}
+              {staffEventChoice === "reckless" && <>すみません……お客様を待たせてしまって、何人か次回予約をキャンセルされました。</>}
+              {staffEventChoice === "hold" && <>そうですか。また考えが変わったら言ってください。</>}
+            </TalkBox>
+
+            {staffEventChoice === null && (
+              <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-600 leading-relaxed">
+                <div className="text-stone-500 mb-1">今の客数の上限を計算してみると――</div>
+                現在：スタイリスト{staffCount}人 × {HOURS_PER_DAY}時間 × {DAYS_PER_MONTH}日 ÷ 平均{SERVICE_HOURS_BASE}時間 = <b>月{baseCapacity}人</b>まで対応可能（今のお客様は月{CURRENT_CUSTOMERS}人）
+                <div className="border-t border-stone-200 my-2" />
+                トリートメント込みだと平均施術時間が{SERVICE_HOURS_TREATMENT}時間に伸びるため、上限は<b>月{treatmentCapacity}人</b>に。
+                {treatmentCapacity < CURRENT_CUSTOMERS
+                  ? <> 今のお客様（{CURRENT_CUSTOMERS}人）より<b className="text-red-600">少なくなってしまいます</b>。</>
+                  : <> 今のお客様（{CURRENT_CUSTOMERS}人）は何とか対応できそうです。</>}
+              </div>
             )}
-            {prediction !== null && !seenCashLesson && (
-              <button onClick={() => setSeenCashLesson(true)} className="text-[13px] text-amber-700 mt-2">わかった →</button>
+
+            {staffEventChoice === null && (
+              <div className="flex flex-col gap-2 mt-2">
+                <button onClick={() => chooseStaffEvent("hire")}
+                  className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">
+                  スタッフを1人増やして始める <span className="text-stone-400">（人件費 +¥150,000/月、上限は月{treatmentCapacityWithHire}人に）</span>
+                </button>
+                <button onClick={() => chooseStaffEvent("reckless")}
+                  className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">
+                  人を増やさずにそのまま始めてみる
+                </button>
+                <button onClick={() => chooseStaffEvent("hold")}
+                  className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">
+                  今回は見送る
+                </button>
+              </div>
+            )}
+
+            {staffEventChoice !== null && (
+              <>
+                <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-600">
+                  {staffEventChoice === "hire" && <>スタッフを増やしたことで、来月から売上が<b>+{yen(300000)}</b>、人件費が<b>−{yen(150000)}</b>見込みです（差し引き+{yen(150000)}）。</>}
+                  {staffEventChoice === "reckless" && <>捌ききれずお客様が離れてしまい、見込んでいたほどの上乗せにはならず、来月の売上は<b>+{yen(50000)}</b>にとどまりそうです。因数分解してから決めるべきでしたね。</>}
+                  {staffEventChoice === "hold" && <>今回は現状維持です。数字がもう少し落ち着いてから、また検討しましょう。</>}
+                </div>
+                <button onClick={() => setSeenStaffEvent(true)} className="text-[13px] text-amber-700 mt-2">わかった →</button>
+              </>
             )}
           </>
         )}
@@ -259,6 +336,55 @@ export default function InheritDemo() {
       <Btn onClick={() => setScreen("hub")}>本社に戻る →</Btn>
     </Shell>
   );
+
+  // ===== 志村税理士事務所 =====
+  if (screen === "tax") {
+    const topics = [
+      {
+        key: "pl",
+        label: "決算書の読み方を教えてください",
+        answer: <>損益計算書は、上から順に引き算していくだけです。<b>売上高</b>から<b>売上原価</b>を引くと<b>売上総利益</b>。
+          そこから家賃や人件費などの固定費を引くと<b>営業利益</b>。さらに<b>支払利息</b>のような、本業以外の費用を引いたものが<b>当期純利益</b>です。
+          お店で見た表も、この順番になっていますよ。</>,
+      },
+      {
+        key: "ratio",
+        label: "経営指標について教えてください",
+        answer: <>代表的なものに<b>自己資本比率</b>があります。会社の総資産のうち、返済しなくてよい自分たちのお金（純資産）がどれくらいの割合か、という指標です。
+          比率が高いほど借金への依存が少なく、経営が安定していると見られます。詳しい貸借対照表はまた今度お見せしますが、
+          フルールさんは借入がまだ多く残っている分、比率は高くありません。利益を積み上げていくことで、少しずつ改善していきます。</>,
+      },
+    ];
+    const selected = topics.find(t => t.key === taxTopic);
+    return (
+      <Shell cash={cash}>
+        <div className="flex items-center justify-between pt-1">
+          <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-md">志村税理士事務所</span>
+          <span className="text-sm text-stone-500">{month}ヶ月目</span>
+        </div>
+        <div className="text-center pt-3"><Shimura size={72} /></div>
+        <TalkBox name="志村（顧問税理士）" avatar={<Shimura size={52} />}>
+          {selected ? selected.answer : <>何でも聞いてください。今日はどんなお話をしましょうか。</>}
+        </TalkBox>
+
+        {!selected && (
+          <div className="flex flex-col gap-2 mt-3">
+            {topics.map(t => (
+              <button key={t.key} onClick={() => setTaxTopic(t.key)}
+                className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {selected && (
+          <button onClick={() => setTaxTopic(null)} className="text-[13px] text-amber-700 mt-2">他の質問をする</button>
+        )}
+
+        <Btn onClick={() => { setTaxTopic(null); setScreen("hub"); }}>事務所を出る →</Btn>
+      </Shell>
+    );
+  }
 
   // ===== 銀行面談（デモ終了） =====
   if (screen === "bankReview") {
