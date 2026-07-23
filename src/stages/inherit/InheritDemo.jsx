@@ -5,9 +5,10 @@ import {
   DEMO_MONTHS, yen, manYen, manYenRow, calcMonth,
   STAFF_COUNT, SERVICE_HOURS_BASE, SERVICE_HOURS_TREATMENT, CURRENT_CUSTOMERS, AVG_TICKET,
   INTEREST_RATIO, capacity, blendedServiceHours,
-  HOURS_PER_DAY, DAYS_PER_MONTH, FIXED_ASSETS, CAPITAL_STOCK,
+  HOURS_PER_DAY, DAYS_PER_MONTH, FIXED_ASSETS, CAPITAL_STOCK, RETAINED_EARNINGS_INIT,
 } from "./data";
 import { TAX_TOPICS } from "./taxTopics";
+import BSDiagram from "./BSDiagram";
 import { Player, Mother, Banker, Staff } from "./characters";
 import Shimura from "../../components/characters/Shimura";
 import TalkBox from "./TalkBox";
@@ -71,7 +72,7 @@ export default function InheritDemo() {
 
   const monthsUntilReview = DEMO_MONTHS - month + 1;
   const accumDep = history.reduce((s, h) => s + h.depreciation, 0);
-  const retainedEarnings = history.reduce((sum, h) => sum + h.netProfit, 0);
+  const retainedEarnings = RETAINED_EARNINGS_INIT + history.reduce((sum, h) => sum + h.netProfit, 0);
   const fixedAssetsBook = Math.max(0, FIXED_ASSETS - accumDep);
   const totalAssets = cash + fixedAssetsBook;
   const totalEquity = CAPITAL_STOCK + retainedEarnings;
@@ -505,6 +506,7 @@ export default function InheritDemo() {
                 <Row label="負債・純資産合計" val={manYenRow(loanBalance + CAPITAL_STOCK + retainedEarnings, prevLoan + CAPITAL_STOCK + prevRetained)} bold />
                 <div className="border-t border-stone-300 my-1" />
                 <Row label="自己資本比率" val={equityRatio.toFixed(1) + "%（" + (equityRatio - prevEquityRatio >= 0 ? "+" : "−") + Math.abs(equityRatio - prevEquityRatio).toFixed(1) + "pt）"} bold />
+                <BSDiagram totalAssets={totalAssets} liabilities={loanBalance} equity={totalEquity} ratio={equityRatio} />
               </div>
             );
           })()}
@@ -567,7 +569,11 @@ export default function InheritDemo() {
 
         {selected && (
           <>
-            <TalkBox name="志村（顧問税理士）" avatar={<Shimura size={52} />}>{selected.answer}</TalkBox>
+            <TalkBox name="志村（顧問税理士）" avatar={<Shimura size={52} />}>
+              {typeof selected.answer === "function"
+                ? selected.answer({ totalAssets, liabilities: loanBalance, equity: totalEquity, ratio: equityRatio })
+                : selected.answer}
+            </TalkBox>
             <button onClick={() => setTaxTopic(null)} className="text-[13px] text-amber-700 mt-2">他の質問をする</button>
           </>
         )}

@@ -1,5 +1,9 @@
+import BSDiagram from "./BSDiagram";
+
 // 志村税理士事務所の解説メニュー。順番にアンロックされる（1つ読むと次が選べるようになる）。
 // InheritDemo側で「1ヶ月に読めるのは3つまで」の制限をかける。
+// answerは通常はJSX固定文だが、"ratio"のように現在の会社の数字を使いたいものは
+// (ctx) => JSX という関数にしている（ctx = {totalAssets, liabilities, equity, ratio}）。
 export const TAX_TOPICS = [
   {
     key: "pl",
@@ -17,8 +21,14 @@ export const TAX_TOPICS = [
   {
     key: "ratio",
     label: "自己資本比率について教えてください",
-    answer: <>自己資本比率は、総資産のうち純資産（返さなくていいお金）がどれくらいの割合かを示す指標です。比率が高いほど借金への依存が少なく、
-      経営が安定していると見られます。フルールさんは借入がまだ多く残っている分、比率は高くありません。利益を積み上げていくことで、少しずつ改善していきます。</>,
+    answer: ({ totalAssets, liabilities, equity, ratio }) => (
+      <>
+        自己資本比率は、総資産のうち純資産（返さなくていいお金）がどれくらいの割合かを示す指標です。比率が高いほど借金への依存が少なく、
+        経営が安定していると見られます。図にすると、こんなイメージです。
+        <BSDiagram totalAssets={totalAssets} liabilities={liabilities} equity={equity} ratio={ratio} />
+        フルールさんは借入がまだ多く残っている分、比率は高くありません。利益を積み上げていくことで、少しずつ改善していきます。
+      </>
+    ),
   },
   {
     key: "officer_pay",
