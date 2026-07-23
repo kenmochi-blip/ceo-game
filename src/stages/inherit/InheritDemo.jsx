@@ -237,7 +237,8 @@ export default function InheritDemo() {
               <b>銀行への返済のうち「元本」はPL（損益計算書）には出てきません。</b>
               利息だけが費用として計上されます。だから利益が出ていても、元本の返済と生活費の分だけ、現金は減っていくんです。
             </TalkBox>
-            <button onClick={() => setSeenCashLesson(true)} className="text-[13px] text-amber-700 mt-2">わかった →</button>
+            <button onClick={() => { setSeenCashLesson(true); setStoreMode(seenStaffEvent ? "recap" : "staffEvent"); }}
+              className="text-[13px] text-amber-700 mt-2">わかった →</button>
           </>
         )}
 
