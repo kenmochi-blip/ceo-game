@@ -68,7 +68,6 @@ export default function InheritDemo() {
     setLoanBalance(result.newLoanBalance);
     setReadThisMonth(0);
     if (newCash < 0) { setScreen("gameover"); return; }
-    if (month === 1) { setMonth(m => m + 1); setScreen("bankFirstVisit"); return; }
     if (month >= DEMO_MONTHS) { setMonth(m => m + 1); setScreen("bankReview"); return; }
     setMonth(m => m + 1);
     setScreen("hub");
@@ -151,7 +150,7 @@ export default function InheritDemo() {
         {gender === "daughter" ? "あなたなら大丈夫。" : "頼りにしてるから。"}まずは会社がどうなっているのか、
         自分の目で確かめてみて。
       </TalkBox>
-      <Btn onClick={() => setScreen("hub")}>経営を引き継ぐ →</Btn>
+      <Btn onClick={() => setScreen("bankFirstVisit")}>経営を引き継ぐ →</Btn>
     </Shell>
   );
 
@@ -460,7 +459,7 @@ export default function InheritDemo() {
     </Shell>
   );
 
-  // ===== 銀行の初回訪問（1ヶ月目終了直後・スクリプトイベント） =====
+  // ===== 銀行の初回訪問（母との引き継ぎ直後・スクリプトイベント） =====
   if (screen === "bankFirstVisit") return (
     <Shell cash={cash}>
       <div className="text-center pt-6"><Banker size={80} /></div>
@@ -468,7 +467,7 @@ export default function InheritDemo() {
         この度は、突然のことで……心よりお悔やみ申し上げます。
       </TalkBox>
       <TalkBox name="剱持（銀行担当者）" avatar={<Banker size={52} />}>
-        さっそくで恐縮ですが、融資の状況を確認させてください。
+        お忙しいところ恐縮ですが、引き継ぎのご挨拶と、融資の状況だけ確認させてください。
       </TalkBox>
       <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200">
         <Row label="借入残高" val={yen(loanBalance)} bold />
@@ -476,9 +475,9 @@ export default function InheritDemo() {
         <Row label="毎月の元本返済額" val={yen(PRINCIPAL_PAYMENT)} />
       </div>
       <TalkBox name="剱持（銀行担当者）" avatar={<Banker size={52} />}>
-        毎月の元本と利息のお支払い、よろしくお願いします。それでは、また{DEMO_MONTHS - 1}ヶ月後にご挨拶に伺いますね。
+        毎月の元本と利息のお支払い、よろしくお願いします。それでは、また{DEMO_MONTHS}ヶ月後にご挨拶に伺いますね。
       </TalkBox>
-      <Btn onClick={() => setScreen("hub")}>本社に戻る →</Btn>
+      <Btn onClick={() => setScreen("hub")}>経営を始める →</Btn>
     </Shell>
   );
 
