@@ -1,104 +1,170 @@
-// 「継承」デモ：数値まわりの定数と月次計算ロジック
+// 「継承」：数値まわりの定数と月次計算ロジック（因数モデル版）
+//
+// ■設計方針（多店舗・出店・エリアマネージャーへの拡張に耐える形）
+//   売上 ＝ 実客数 × 客単価
+//   実客数 ＝ min( 潜在需要, capacity(スタッフ数, 接客時間) )
+//   ・capacity（対応可能人数の上限）は 店の広さ・設備＝スタッフ数と一人あたり接客時間で決まる
+//   ・施策は「需要／客単価／接客時間／人員／コスト のどのレバーをどれだけ動かすか」を宣言するだけ
+//     → ③の因数分解がそのまま計算式になり、capacity上限が自動で効く（＝失敗も自然に発生する）
+//   会社PL ＝ Σ店舗の貢献利益 − 役員報酬（本社費） − 支払利息
+//   会社BS／現金／借入 は会社レベル。出店＝storesに1件追加、エリアマネージャー＝本社費レバー、で拡張する。
+
 export const COMPANY_NAME = "株式会社フルール";
 export const STORE_NAME = "サロン・ドゥ・フルール 本店";
 
-export const START_CASH = 1800000;      // 引き継いだ時点の会社の現金
-export const LOAN_START = 6000000;      // 銀行借入の残高
+// ── 会社レベルの定数 ──
+export const START_CASH = 1800000;      // 引き継いだ時点の会社の現預金
 export const ANNUAL_RATE = 0.03;        // 借入金利（年率）
-export const PRINCIPAL_PAYMENT = 200000; // 毎月の元本返済額（定額）
+export const PRINCIPAL_PAYMENT = 250000; // 毎月の元本返済額（定額。2店舗分の借入に対応）
 
-export const SALES = 1500000;           // 本店の月次売上（デモでは固定）
-export const COGS_RATE = 0.22;          // 原価率（シャンプー・カラー剤等の消耗材料費。美容室は変動費が小さいため低め）
-export const RENT = 200000;             // 家賃
-export const LABOR = 600000;            // 人件費（スタイリスト2人分、社会保険等込み）
-export const OTHER_FIXED = 100000;      // その他固定費（水道光熱費等）
-export const DEPRECIATION_PER_MONTH = 50000; // 減価償却費（現金を伴わない費用）
-
-export const DRAW_DEFAULT = 300000;     // 役員報酬：father's old habit（引き継ぎ時に一度だけ決め、以後変更しない）
+export const DRAW_DEFAULT = 200000;     // 役員報酬（月額）の初期値＝父の代の水準。ちょうど「黒字だが現金が減る」帯
 export const DRAW_MIN = 0;
-export const DRAW_MAX = 300000;
-export const DRAW_STEP = 50000;
+export const DRAW_MAX = 400000;
+export const DRAW_STEP = 25000;
 
-export const DEMO_MONTHS = 4;           // このデモで進める月数（4ヶ月後に銀行が再訪問）
+export const DEMO_MONTHS = 4;           // 体験版で銀行が再訪問するまでの月数（本番は継続）
 
 // ── 自己資本比率の目標ライン ──
 export const EQUITY_RATIO_TARGET = 30;   // まず目指すべき自己資本比率（%）
 export const EQUITY_STREAK_TARGET = 3;   // この目標を連続で維持すると銀行から前向きな話が出る月数
 
 // ── 貸借対照表（BS）用の定数 ──
-export const FIXED_ASSETS = 5000000;      // 什器・敷金保証金など（減価償却により帳簿価額が減っていく）
 export const CAPITAL_STOCK = 300000;      // 資本金
-export const RETAINED_EARNINGS_INIT = 500000; // 引き継ぎ時点の利益剰余金（先代の代からの積み上げ分）
-// 開始時点で 資産(現金+固定資産) = 負債(借入)+純資産(資本金+利益剰余金) が釣り合うように設定
-// 1,800,000 + 5,000,000 = 6,000,000 + (300,000 + 500,000) = 6,800,000
+export const RETAINED_EARNINGS_INIT = 500000; // 引き継ぎ時点の利益剰余金（先代からの積み上げ分）
 
-// ── 前期（先代最後の1年間）の決算書 ──
-// 引き継ぎ直後、志村さんの事務所でPL/BSの読み方を教わる際の実例として使う。
-// 期末時点のBSは START_CASH / LOAN_START / FIXED_ASSETS / CAPITAL_STOCK / RETAINED_EARNINGS_INIT と同じ（＝今の期首）。
-export const PRIOR_YEAR_PL = {
-  sales: 18000000, cogs: 3960000, gross: 14040000,
-  rent: 2400000, labor: 7200000, executiveComp: 3600000, otherFixed: 1200000, depreciation: 600000,
-  operating: -960000, interest: 200000, ordinary: -1160000, netProfit: -1160000,
-};
-
-// ── 客数の因数分解（③の軽い体験版：スタッフ新メニュー相談イベント用）──
-export const STAFF_COUNT = 2;             // 現在のスタイリスト人数
-export const HOURS_PER_DAY = 8;
-export const DAYS_PER_MONTH = 25;
-export const SERVICE_HOURS_BASE = 1.0;    // 通常メニューの平均施術時間
-export const SERVICE_HOURS_TREATMENT = 1.5; // トリートメント込みの平均施術時間
-export const AVG_TICKET = 5000;           // 平均客単価（SALES = AVG_TICKET × 客数）
-export const CURRENT_CUSTOMERS = Math.round(SALES / AVG_TICKET); // 300人/月
-export const INTEREST_RATIO = 0.7;        // トリートメントに興味を持ちそうな客の比率
-
-export const capacity = (staffCount, serviceHours) =>
-  Math.floor((staffCount * HOURS_PER_DAY * DAYS_PER_MONTH) / serviceHours);
-
-// 興味を持つ客の割合を加味した、1人あたりの平均施術時間（全員がトリートメントを受けるわけではない）
-export const blendedServiceHours = (interestRatio) =>
-  SERVICE_HOURS_BASE * (1 - interestRatio) + SERVICE_HOURS_TREATMENT * interestRatio;
-
-// ── 店舗施策の効果値 ──
-// 売上＝客数×客単価。客数は「対応可能人数」の上限が、店の広さ・設備・従業員数・一人当たり接客時間で決まる
-// （capacity()参照）。施策はこの客数・客単価・コストのどこに効くかで設計する。
-// この定数群と下のSTORE_FACTOR_MATRIXが、施策と数字の対応を一箇所にまとめた設計上の一覧表（プレイヤーには非表示）。
-export const STAFF_HIRE_EXTRA_SALES = 400000;      // 増員してトリートメント開始：新規需要を取りこぼさず売上に反映
-export const STAFF_HIRE_EXTRA_LABOR = 300000;      // 増員分の人件費
-export const STAFF_HIRE_EXTRA_CUSTOMERS = 80;      // 対応可能人数が需要を上回る（capacity(3人,1.35h)=444人 > 300人）ため、新規需要を丸ごと取り込める
-export const STAFF_RECKLESS_EXTRA_SALES = 50000;   // 増員せずトリートメント開始：需要はあるが捌ききれない
-export const STAFF_RECKLESS_EXTRA_CUSTOMERS = 10;  // 対応可能人数が需要を下回る（capacity(2人,1.35h)=296人 < 300人）ため、新規客の大半を取りこぼす
-export const PROMO_EXTRA_SALES = 80000;            // クーポン施策：新規客20人×割引後客単価(AVG_TICKET×0.8)
-export const PROMO_EXTRA_OTHER = 20000;            // クーポン施策：配布コスト（その他固定費に計上）
-export const PROMO_EXTRA_CUSTOMERS = 20;           // クーポン施策：新規客数
-export const PROMO_DISCOUNT_RATE = 0.2;            // クーポン施策：新規客への割引率（客単価が下がる）
-
-// 施策 × 影響要素のマトリクス（開発用の設計メモ。ノート等プレイヤー向けUIには出さない）
-export const STORE_FACTOR_MATRIX = [
+// ── 店舗マスタ（レバー適用前の素の状態）──
+// 各店舗は「需要・供給・単価・コスト」のレバーを持つ。delta系（demandDelta等）は施策で加算される。
+export const STORE_DEFS = [
   {
-    event: "staffEvent: 増員してトリートメント開始",
-    customers: `+${STAFF_HIRE_EXTRA_CUSTOMERS}人（対応可能人数が需要を上回るため、新規需要を丸ごと取り込める）`,
-    unitPrice: "変化なし（既存客単価のまま）",
-    laborCost: `+${STAFF_HIRE_EXTRA_LABOR}円/月`,
-    otherFixedCost: "変化なし",
-    driver: "従業員数（capacity式の分子）",
+    id: "honten", name: "サロン・ドゥ・フルール 本店",
+    baseDemand: 320,        // 潜在需要（月・人）
+    unitPrice: 5000,        // 客単価
+    staffCount: 2,          // スタイリスト数
+    hoursPerDay: 8, daysPerMonth: 25,
+    serviceHours: 1.0,      // 一人あたり接客時間
+    cogsRate: 0.22,         // 原価率（シャンプー・カラー剤等の消耗材料費）
+    rent: 200000, otherFixed: 100000, depreciation: 50000,
+    wagePerStaff: 300000,   // スタッフ1人あたり人件費（人件費 = staffCount × wagePerStaff）
+    fixedAssets: 5000000,   // 什器・敷金など
   },
   {
-    event: "staffEvent: 増員せずトリートメント開始",
-    customers: `+${STAFF_RECKLESS_EXTRA_CUSTOMERS}人（対応可能人数が需要を下回り、新規客の大半を取りこぼす）`,
-    unitPrice: "変化なし",
-    laborCost: "変化なし",
-    otherFixedCost: "変化なし",
-    driver: "一人あたり接客時間（capacity式の分母）に対して需要が上限超過",
-  },
-  {
-    event: "promo: 新規客クーポン配布",
-    customers: `+${PROMO_EXTRA_CUSTOMERS}人（新規客）`,
-    unitPrice: `新規客が${PROMO_DISCOUNT_RATE * 100}%オフのため、全体の客単価が下がる`,
-    laborCost: "変化なし",
-    otherFixedCost: `+${PROMO_EXTRA_OTHER}円/月（配布コスト）`,
-    driver: "客単価（値引き）と店の広さ・設備とは無関係に新規客を呼び込む施策",
+    id: "nigoten", name: "サロン・ドゥ・フルール 2号店",
+    baseDemand: 240,
+    unitPrice: 4500,
+    staffCount: 2,
+    hoursPerDay: 8, daysPerMonth: 25,
+    serviceHours: 1.0,
+    cogsRate: 0.22,
+    rent: 180000, otherFixed: 90000, depreciation: 40000,
+    wagePerStaff: 290000,
+    fixedAssets: 3500000,   // 本店より小さめ。この店は貢献がほぼトントン＝将来の「赤字店舗どうする」の布石
   },
 ];
+
+// 会社の固定資産合計・減価償却合計（BS表示・BS釣り合いに使う）
+export const FIXED_ASSETS = STORE_DEFS.reduce((a, s) => a + s.fixedAssets, 0); // 8,500,000
+
+// 開始時点で 資産(現金+固定資産) = 負債(借入)+純資産(資本金+利益剰余金) が釣り合うように借入を逆算
+//   現金1,800,000 + 固定8,500,000 = 借入 + (300,000 + 500,000)
+export const LOAN_START = (START_CASH + FIXED_ASSETS) - (CAPITAL_STOCK + RETAINED_EARNINGS_INIT); // 9,500,000
+
+// 施策で動かせるレバーだけを初期化した「稼働中の店舗」を作る（React側の初期stateに使う）
+export const makeStores = () => STORE_DEFS.map(s => ({
+  ...s,
+  demandDelta: 0, unitPriceDelta: 0, serviceHoursDelta: 0, otherFixedDelta: 0,
+}));
+
+// ── capacity（対応可能人数の上限）＝ ③因数分解の中核 ──
+export const capacityOf = (staffCount, serviceHours, hoursPerDay = 8, daysPerMonth = 25) =>
+  Math.floor((staffCount * hoursPerDay * daysPerMonth) / serviceHours);
+
+// 店舗の派生値（capacity・需要・実客数・客単価）を計算
+export function deriveStore(s) {
+  const serviceHours = s.serviceHours + (s.serviceHoursDelta || 0);
+  const capacity = capacityOf(s.staffCount, serviceHours, s.hoursPerDay, s.daysPerMonth);
+  const demand = s.baseDemand + (s.demandDelta || 0);
+  const customers = Math.min(demand, capacity);   // ← 需要が上限を超えたら頭打ち（rosyな予測はここで現実に直面する）
+  const unitPrice = s.unitPrice + (s.unitPriceDelta || 0);
+  return { serviceHours, capacity, demand, customers, unitPrice };
+}
+
+// 店舗の1ヶ月（PLの店舗貢献まで）
+export function calcStoreMonth(s) {
+  const d = deriveStore(s);
+  const sales = Math.round(d.customers * d.unitPrice);
+  const cogs = Math.round(sales * s.cogsRate);
+  const labor = s.staffCount * s.wagePerStaff;
+  const otherFixed = s.otherFixed + (s.otherFixedDelta || 0);
+  const contribution = sales - cogs - s.rent - labor - otherFixed - s.depreciation; // 店舗貢献利益（本社費・利息控除前）
+  return {
+    id: s.id, name: s.name,
+    capacity: d.capacity, demand: d.demand, customers: d.customers, unitPrice: d.unitPrice, serviceHours: d.serviceHours,
+    sales, cogs, rent: s.rent, labor, otherFixed, depreciation: s.depreciation, contribution,
+    staffCount: s.staffCount,
+  };
+}
+
+// 会社全体の1ヶ月。stores配列 ＋ 会社レベルのパラメータ（借入・役員報酬・本社費）から会社PLを合算。
+// 返すフィールドは決算書UIがそのまま描ける形（sales/cogs/gross/rent/labor/executiveComp/otherFixed/
+// depreciation/operating/interest/ordinary/netProfit/principal/cashChange/newLoanBalance）。
+export function calcMonth(loanBalance, executiveComp, stores, hqOtherFixed = 0) {
+  const storeResults = stores.map(calcStoreMonth);
+  const sum = (f) => storeResults.reduce((a, r) => a + r[f], 0);
+  const sales = sum("sales");
+  const cogs = sum("cogs");
+  const gross = sales - cogs;
+  const rent = sum("rent");
+  const labor = sum("labor");
+  const storeOtherFixed = sum("otherFixed");
+  const depreciation = sum("depreciation");
+  const otherFixed = storeOtherFixed + hqOtherFixed; // 本社費（エリアマネージャー等）はここに乗せて拡張
+  const operating = gross - rent - labor - otherFixed - executiveComp - depreciation; // 営業利益
+  const interest = Math.round(loanBalance * (ANNUAL_RATE / 12));
+  const ordinary = operating - interest; // 経常利益
+  const netProfit = ordinary;            // 当期純利益（特別損益・税金は考慮しない簡易モデル）
+  const principal = Math.min(PRINCIPAL_PAYMENT, loanBalance);
+  // 減価償却費は現金を伴わない費用なのでキャッシュでは足し戻す。元本返済は差し引く。
+  const cashChange = netProfit - principal + depreciation;
+  return {
+    storeResults,
+    sales, cogs, gross, rent, labor, otherFixed, executiveComp, depreciation,
+    operating, interest, ordinary, netProfit, principal, cashChange,
+    customers: sum("customers"),
+    newLoanBalance: loanBalance - principal,
+  };
+}
+
+// ── 店舗施策のレバー定義（施策と数字の対応を一箇所に集約。ここを足すだけで施策を増やせる）──
+// トリートメント新メニュー：客単価UP（upsell）＆接客時間UP（capacity低下）。増員でcapacityを取り戻せる。
+export const TREATMENT = {
+  unitPriceDelta: 2000,     // 平均客単価UP（興味を持つ約7割が+¥3,000前後のトリートメントを追加 → 平均+¥2,000）
+  serviceHoursDelta: 0.6,   // 接客時間UP（1.0→1.6時間）→ cap低下
+  hireWage: 300000,         // 増員1人あたりの人件費（本店 wagePerStaff と一致）
+};
+// 新規客クーポン：業者の触れ込みは「新規+150人」（rosyな売上予測）。実際は capacity で頭打ちになる＝③の核。
+export const PROMO = {
+  claimedNewCustomers: 150, // 業者の触れ込み（この数字を鵜呑みにしてはいけない）
+  demandDelta: 150,
+  unitPriceDelta: -200,     // 初回割引で平均客単価がやや下がる
+  otherFixedDelta: 80000,   // 配布コスト（チラシ・SNS広告）
+  discountRate: 0.2,        // 新規客への割引率（客単価が下がることの説明用）
+};
+
+// 本店の素の状態（ヒアリングの初期回答やノートの表示に使う）
+const HONTEN = STORE_DEFS[0];
+export const CURRENT_CUSTOMERS = HONTEN.baseDemand; // 本店の現状客数
+export const AVG_TICKET = HONTEN.unitPrice;
+export const STAFF_COUNT = HONTEN.staffCount;
+export const HOURS_PER_DAY = HONTEN.hoursPerDay;
+export const DAYS_PER_MONTH = HONTEN.daysPerMonth;
+export const SERVICE_HOURS_BASE = HONTEN.serviceHours;
+
+// ── 前期（先代最後の1年間）の決算書（志村さんの初回解説用の実例。2店舗・約100万円の赤字）──
+export const PRIOR_YEAR_PL = {
+  sales: 32000000, cogs: 7040000, gross: 24960000,
+  rent: 4560000, labor: 14160000, executiveComp: 3600000, otherFixed: 2280000, depreciation: 1080000,
+  operating: -720000, interest: 300000, ordinary: -1020000, netProfit: -1020000,
+};
 
 export const yen = n => (n < 0 ? "▲" : "") + "¥" + Math.round(Math.abs(n)).toLocaleString();
 
@@ -114,30 +180,3 @@ export const manYenDiff = d => {
   const v = Math.round((Math.abs(d) / 10000) * 10) / 10;
   return (d > 0 ? "+" : "−") + v.toLocaleString(undefined, { maximumFractionDigits: 1 }) + "万円";
 };
-
-// 万円単位＋前月比つきの文字列（Row用）
-export const manYenRow = (cur, prev) =>
-  prev === undefined || prev === null ? manYen(cur) : `${manYen(cur)}（${manYenDiff(cur - prev)}）`;
-
-// 1ヶ月分の経営結果を計算する（executiveCompは役員報酬＝PL費用。extraSales/extraLaborはスタッフイベント等の上乗せ分。
-// extraOtherは販促キャンペーン等の追加経費＝その他固定費に上乗せする分）
-export function calcMonth(loanBalance, executiveComp, extraSales = 0, extraLabor = 0, extraOther = 0) {
-  const sales = SALES + extraSales;
-  const cogs = Math.round(sales * COGS_RATE);
-  const gross = sales - cogs;
-  const labor = LABOR + extraLabor;
-  const otherFixed = OTHER_FIXED + extraOther;
-  const depreciation = DEPRECIATION_PER_MONTH;
-  const operating = gross - RENT - labor - otherFixed - executiveComp - depreciation; // 営業利益
-  const interest = Math.round(loanBalance * (ANNUAL_RATE / 12));
-  const ordinary = operating - interest; // 経常利益
-  const netProfit = ordinary;            // 当期純利益（特別損益・税金は考慮しない簡易モデル）
-  const principal = Math.min(PRINCIPAL_PAYMENT, loanBalance);
-  // 減価償却費は現金を伴わない費用なので、キャッシュの増減では利益に足し戻す。元本返済は差し引く。
-  const cashChange = netProfit - principal + depreciation;
-  return {
-    sales, cogs, gross, rent: RENT, labor, otherFixed, executiveComp, depreciation,
-    operating, interest, ordinary, netProfit, principal, cashChange,
-    newLoanBalance: loanBalance - principal,
-  };
-}

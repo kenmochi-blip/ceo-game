@@ -3,12 +3,9 @@ import {
   COMPANY_NAME, STORE_NAME, START_CASH, LOAN_START, ANNUAL_RATE,
   PRINCIPAL_PAYMENT, DRAW_DEFAULT, DRAW_MIN, DRAW_MAX, DRAW_STEP,
   DEMO_MONTHS, EQUITY_RATIO_TARGET, EQUITY_STREAK_TARGET, yen, manYen, calcMonth,
-  STAFF_COUNT, SERVICE_HOURS_BASE, SERVICE_HOURS_TREATMENT, CURRENT_CUSTOMERS, AVG_TICKET,
-  INTEREST_RATIO, capacity, blendedServiceHours,
+  STAFF_COUNT, SERVICE_HOURS_BASE, CURRENT_CUSTOMERS, AVG_TICKET,
   HOURS_PER_DAY, DAYS_PER_MONTH, FIXED_ASSETS, CAPITAL_STOCK, RETAINED_EARNINGS_INIT,
-  STAFF_HIRE_EXTRA_SALES, STAFF_HIRE_EXTRA_LABOR, STAFF_HIRE_EXTRA_CUSTOMERS,
-  STAFF_RECKLESS_EXTRA_SALES, STAFF_RECKLESS_EXTRA_CUSTOMERS,
-  PROMO_EXTRA_SALES, PROMO_EXTRA_OTHER, PROMO_EXTRA_CUSTOMERS, PROMO_DISCOUNT_RATE,
+  makeStores, deriveStore, capacityOf, calcStoreMonth, TREATMENT, PROMO,
 } from "./data";
 import { TAX_TOPICS } from "./taxTopics";
 import BSDiagram from "./BSDiagram";
@@ -34,18 +31,18 @@ const BASELINE_QUESTIONS = [
   { key: "cutTime", q: "一人当たりのカット時間を聞く", a: `平均${SERVICE_HOURS_BASE}時間くらいです。` },
 ];
 
-// メニュー提案の追加ヒアリング（③の因数分解を対話の中で引き出すため、数字はここでだけ明かす）
+// トリートメント新メニューの追加ヒアリング（③の因数分解を対話で引き出す。数字はここで明かす）
 const STAFF_QUESTIONS = [
-  { key: "cost", q: "追加コストを聞く", a: "スタッフを1人増やすなら、社会保険等も込みで人件費は月30万円ほど増えそうです。" },
-  { key: "timeIncrease", q: "接客時間の伸びを聞く", a: `1人あたりの施術時間が、通常${SERVICE_HOURS_BASE}時間からトリートメント込みで${SERVICE_HOURS_TREATMENT}時間に伸びるみたいです。` },
-  { key: "interestRatio", q: "興味がありそうな客の比率を聞く", a: `肌感ですが、だいたい${Math.round(INTEREST_RATIO * 100)}%くらいのお客様が興味を持ちそうです。` },
+  { key: "price", q: "客単価がどれくらい上がるか聞く", a: `トリートメントを追加されるお客様が多くて、平均の客単価が${yen(AVG_TICKET)}から${yen(AVG_TICKET + TREATMENT.unitPriceDelta)}くらいに上がりそうです。` },
+  { key: "time", q: "接客時間の伸びを聞く", a: `施術時間が、通常${SERVICE_HOURS_BASE}時間から${(SERVICE_HOURS_BASE + TREATMENT.serviceHoursDelta).toFixed(1)}時間に伸びるみたいです。` },
+  { key: "cost", q: "スタッフを増やす場合のコストを聞く", a: `スタッフを1人増やすなら、社会保険等も込みで人件費は月${manYen(TREATMENT.hireWage)}ほど増えそうです。` },
 ];
 
-// 販促キャンペーン（新規客クーポン）の追加ヒアリング
+// 新規客クーポン（販促）の追加ヒアリング。業者の「新規+150人」という触れ込み＝rosyな売上予測の罠
 const PROMO_QUESTIONS = [
-  { key: "cost", q: "配布コストを聞く", a: "印刷費やSNS広告費で、月2万円ほどかかりそうです。" },
-  { key: "reach", q: "新規客がどれくらい増えそうか聞く", a: "近くのお店の例だと、月20人前後の新規のお客様が増えるみたいです。" },
-  { key: "discount", q: "客単価への影響を聞く", a: "初回20%オフのクーポンなので、新規のお客様の客単価は少し下がりそうです。" },
+  { key: "reach", q: "新規客がどれくらい増えそうか聞く", a: `業者さん曰く「このチラシなら新規のお客様が月${PROMO.claimedNewCustomers}人は増えます！」とのことです。` },
+  { key: "discount", q: "客単価への影響を聞く", a: `初回${Math.round(PROMO.discountRate * 100)}%オフのクーポンなので、新規のお客様の分だけ平均客単価は少し下がりそうです。` },
+  { key: "cost", q: "配布コストを聞く", a: `印刷費やSNS広告費で、月${manYen(PROMO.otherFixedDelta)}ほどかかりそうです。` },
 ];
 
 // 「継承」オープンワールド型デモ：本社をハブに、店舗（現場の相談）・志村公認会計士・税理士事務所（決算書・解説）・
@@ -62,17 +59,16 @@ export default function InheritDemo() {
   const [history, setHistory] = useState([]);
   const [lastResult, setLastResult] = useState(null);
 
+  const [stores, setStores] = useState(makeStores);   // 稼働中の店舗（レバー込み）。UIが触るのは stores[0]＝本店
+  const [lastStoreResults, setLastStoreResults] = useState(null); // 先月の店舗別実績（本店の客数・売上表示用）
+
   const [storeMode, setStoreMode] = useState(null);
-  const [staffCount, setStaffCount] = useState(STAFF_COUNT);
-  const [extraSales, setExtraSales] = useState(0);
-  const [extraLabor, setExtraLabor] = useState(0);
-  const [extraOther, setExtraOther] = useState(0);
-  const [extraCustomers, setExtraCustomers] = useState(0);
   const [seenStaffEvent, setSeenStaffEvent] = useState(false);
   const [staffEventChoice, setStaffEventChoice] = useState(null);
   const [staffAsked, setStaffAsked] = useState([]);
   const [staffQAOpen, setStaffQAOpen] = useState(false);
   const [staffDecisionOpen, setStaffDecisionOpen] = useState(false);
+  const [staffPredict, setStaffPredict] = useState(null); // ⑤ 予想（"enough"/"short"）してから答え合わせ
   const [staffEventMonth, setStaffEventMonth] = useState(null);
   const [staffEventResultPending, setStaffEventResultPending] = useState(false);
   const [seenBaseline, setSeenBaseline] = useState(false);
@@ -119,16 +115,25 @@ export default function InheritDemo() {
 
   const goTax = () => { setTaxMode("menu"); setTaxTopic(null); setScreen("tax"); };
 
+  // 本店（stores[0]）のレバーにパッチを当てる。delta系は加算、staffCountは絶対値の上書き。
+  const patchHonten = (patch) => setStores(prev => prev.map((s, i) => {
+    if (i !== 0) return s;
+    const next = { ...s };
+    for (const [k, v] of Object.entries(patch)) {
+      if (k === "staffCount") next.staffCount = v;
+      else next[k] = (next[k] || 0) + v; // demandDelta / unitPriceDelta / serviceHoursDelta / otherFixedDelta
+    }
+    return next;
+  }));
+
   const advanceMonth = () => {
     setTransitioning(true);
     setTimeout(() => {
-      const result = calcMonth(loanBalance, draw, extraSales, extraLabor, extraOther);
+      const result = calcMonth(loanBalance, draw, stores);
       const newCash = cash + result.cashChange;
-      // 客数はその時点のextraCustomersでスナップショットする（後で施策を追加してもこの月の実績は変わらない）
-      const customers = CURRENT_CUSTOMERS + extraCustomers;
-      const resultWithCustomers = { ...result, customers };
-      setHistory(h => [...h, { m: month, cash: newCash, ...resultWithCustomers }]);
-      setLastResult(resultWithCustomers);
+      setHistory(h => [...h, { m: month, cash: newCash, ...result }]);
+      setLastResult(result);
+      setLastStoreResults(result.storeResults);
       setCash(newCash);
       setLoanBalance(result.newLoanBalance);
       setReadThisMonth(0);
@@ -160,10 +165,10 @@ export default function InheritDemo() {
   const restart = () => {
     setScreen("title"); setMonth(1); setCash(START_CASH); setLoanBalance(LOAN_START);
     setDraw(DRAW_DEFAULT); setHistory([]); setLastResult(null);
+    setStores(makeStores()); setLastStoreResults(null);
     setStoreMode(null);
-    setStaffCount(STAFF_COUNT); setExtraSales(0); setExtraLabor(0); setExtraOther(0); setExtraCustomers(0);
     setSeenStaffEvent(false); setStaffEventChoice(null); setStaffAsked([]);
-    setStaffQAOpen(false); setStaffDecisionOpen(false);
+    setStaffQAOpen(false); setStaffDecisionOpen(false); setStaffPredict(null);
     setStaffEventMonth(null); setStaffEventResultPending(false);
     setSeenPromo(false); setPromoChoice(null); setPromoAsked([]);
     setPromoQAOpen(false); setPromoDecisionOpen(false); setPromoMonth(null); setPromoResultPending(false);
@@ -179,14 +184,11 @@ export default function InheritDemo() {
     if (choice === "hold") return;
     setStaffEventMonth(month);
     setStaffEventResultPending(true);
+    // トリートメント：客単価UP＋接客時間UP（cap低下）。増員なら同時にスタッフ+1でcapを取り戻す。
     if (choice === "hire") {
-      setStaffCount(STAFF_COUNT + 1);
-      setExtraSales(s => s + STAFF_HIRE_EXTRA_SALES);
-      setExtraLabor(l => l + STAFF_HIRE_EXTRA_LABOR);
-      setExtraCustomers(c => c + STAFF_HIRE_EXTRA_CUSTOMERS);
+      patchHonten({ unitPriceDelta: TREATMENT.unitPriceDelta, serviceHoursDelta: TREATMENT.serviceHoursDelta, staffCount: stores[0].staffCount + 1 });
     } else if (choice === "reckless") {
-      setExtraSales(s => s + STAFF_RECKLESS_EXTRA_SALES);
-      setExtraCustomers(c => c + STAFF_RECKLESS_EXTRA_CUSTOMERS);
+      patchHonten({ unitPriceDelta: TREATMENT.unitPriceDelta, serviceHoursDelta: TREATMENT.serviceHoursDelta });
     }
   };
 
@@ -195,10 +197,9 @@ export default function InheritDemo() {
     if (choice === "hold") return;
     setPromoMonth(month);
     setPromoResultPending(true);
+    // クーポン：需要UP（ただし capacityで頭打ち）・客単価やや減・配布コスト
     if (choice === "run") {
-      setExtraSales(s => s + PROMO_EXTRA_SALES);
-      setExtraOther(o => o + PROMO_EXTRA_OTHER);
-      setExtraCustomers(c => c + PROMO_EXTRA_CUSTOMERS);
+      patchHonten({ demandDelta: PROMO.demandDelta, unitPriceDelta: PROMO.unitPriceDelta, otherFixedDelta: PROMO.otherFixedDelta });
     }
   };
 
@@ -259,7 +260,7 @@ export default function InheritDemo() {
         <Row label="銀行からの借入残高" val={yen(LOAN_START)} red />
       </div>
       <TalkBox name="母" avatar={<Mother size={52} />}>
-        まず、あなたの役員報酬を決めておきましょう。会社の役員報酬は、個人事業主の生活費と違って、一度決めたら期の途中では簡単に変えられないものだから。
+        まず、あなたの役員報酬を決めておきましょう。会社の役員報酬は、個人事業主の生活費と違って<b>会社の経費</b>になるの。とりあえず今は父の代の水準にしておいて、あとで志村さんと相談しながら見直せばいいわ。
       </TalkBox>
       <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200">
         <div className="flex justify-between text-sm text-stone-600">
@@ -268,7 +269,7 @@ export default function InheritDemo() {
         </div>
         <input type="range" min={DRAW_MIN} max={DRAW_MAX} step={DRAW_STEP} value={draw}
           onChange={e => setDraw(parseInt(e.target.value))} className="w-full mt-1" />
-        <div className="flex justify-between text-[13px] text-stone-400"><span>切り詰める</span><span>父の代のまま</span></div>
+        <div className="flex justify-between text-[13px] text-stone-400"><span>切り詰める</span><span>父の代の水準</span></div>
       </div>
       <TalkBox name="母" avatar={<Mother size={52} />}>
         決まったら、まずは志村さんのところに行ってきて。
@@ -361,41 +362,43 @@ export default function InheritDemo() {
 
   // ===== 店舗（現場の相談） =====
   if (screen === "store") {
+    const honten = stores[0];
+    const hontenNow = deriveStore(honten);            // 今の 本店（capacity・需要・実客数・客単価）
     const baselineAskedAll = baselineAsked.length === BASELINE_QUESTIONS.length;
     const askedAll = staffAsked.length === STAFF_QUESTIONS.length;
-    const avgServiceHours = blendedServiceHours(INTEREST_RATIO);
-    const baseCapacity = capacity(staffCount, SERVICE_HOURS_BASE);
-    const treatmentCapacity = capacity(staffCount, avgServiceHours);
-    const treatmentCapacityWithHire = capacity(staffCount + 1, avgServiceHours);
-    // トリートメント開始済み（増員/強行いずれか）かどうかで、今の平均接客時間が変わる
-    const treatmentActive = staffEventChoice === "hire" || staffEventChoice === "reckless";
-    const currentAvgServiceHours = treatmentActive ? avgServiceHours : SERVICE_HOURS_BASE;
-    const currentCapacity = capacity(staffCount, currentAvgServiceHours);
-    const utilization = lastResult ? Math.round((lastResult.customers / currentCapacity) * 100) : null;
+    const promoAskedAll = promoAsked.length === PROMO_QUESTIONS.length;
+    // トリートメント検討時の因数分解（素の本店に対して）
+    const treatmentHours = SERVICE_HOURS_BASE + TREATMENT.serviceHoursDelta;
+    const treatmentCapacity = capacityOf(honten.staffCount, treatmentHours, honten.hoursPerDay, honten.daysPerMonth);
+    const treatmentCapacityWithHire = capacityOf(honten.staffCount + 1, treatmentHours, honten.hoursPerDay, honten.daysPerMonth);
+    const lastHonten = lastStoreResults ? lastStoreResults[0] : null;
+    const utilization = lastHonten ? Math.round((lastHonten.customers / hontenNow.capacity) * 100) : null;
     return (
       <Shell cash={cash} cashLabel={CASH_LABEL} transitioning={transitioning}>
         <div className="flex items-center justify-between pt-1">
-          <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-md">{STORE_NAME}</span>
+          <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-md">{honten.name}</span>
           <span className="text-sm text-stone-500">{month}ヶ月目</span>
         </div>
 
         {storeMode !== "baseline" && (
           <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200">
             <div className="text-xs text-stone-500 mb-1">お店の今の状態</div>
-            <Row label="👥 スタイリスト数" val={`${staffCount}人`} />
-            <Row label="⏱ 一人あたり接客時間" val={`${currentAvgServiceHours.toFixed(2)}時間`} />
-            <Row label="📐 対応可能人数（上限）" val={`${currentCapacity}人/月`} />
-            {lastResult && (
+            <Row label="👥 スタイリスト数" val={`${honten.staffCount}人`} />
+            <Row label="⏱ 一人あたり接客時間" val={`${hontenNow.serviceHours.toFixed(2)}時間`} />
+            <Row label="📐 対応可能人数（上限）" val={`${hontenNow.capacity}人/月`} />
+            <Row label="🙋 潜在需要（来たいお客様）" val={`${hontenNow.demand}人/月`} red={hontenNow.demand > hontenNow.capacity} />
+            {lastHonten && (
               <Row label="📊 稼働率（先月客数÷上限）" val={`${utilization}%`} red={utilization >= 100} />
             )}
           </div>
         )}
 
-        {lastResult && storeMode !== "baseline" && (
+        {lastHonten && storeMode !== "baseline" && (
           <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200">
-            <div className="text-xs text-stone-500 mb-1">先月（{month - 1}ヶ月目）の実績</div>
-            <Row label="客数" val={`${lastResult.customers}人`} />
-            <Row label="客単価" val={yen(Math.round(lastResult.sales / lastResult.customers))} />
+            <div className="text-xs text-stone-500 mb-1">先月（{month - 1}ヶ月目）の本店実績</div>
+            <Row label="客数" val={`${lastHonten.customers}人`} />
+            <Row label="客単価" val={yen(lastHonten.unitPrice)} />
+            <Row label="売上（客数×客単価）" val={yen(lastHonten.sales)} bold />
           </div>
         )}
 
@@ -425,19 +428,19 @@ export default function InheritDemo() {
 
         {storeMode === "recap" && (
           <>
-            {staffEventResultPending && month > staffEventMonth && (
+            {staffEventResultPending && month > staffEventMonth && lastHonten && (
               <>
                 <TalkBox name="チーフスタイリスト" avatar={<Staff size={52} mood={staffEventChoice === "reckless" ? "worried" : "normal"} />}>
-                  {staffEventChoice === "hire" && <>スタッフを増やしたことで、売上が<b>+{yen(STAFF_HIRE_EXTRA_SALES)}</b>、人件費が<b>−{yen(STAFF_HIRE_EXTRA_LABOR)}</b>になりました（差し引き+{yen(STAFF_HIRE_EXTRA_SALES - STAFF_HIRE_EXTRA_LABOR)}）。</>}
-                  {staffEventChoice === "reckless" && <>やっぱり捌ききれずお客様が離れてしまい、見込んでいたほどの上乗せにはならず、売上は<b>+{yen(STAFF_RECKLESS_EXTRA_SALES)}</b>にとどまりました。因数分解してから決めるべきでしたね。</>}
+                  {staffEventChoice === "hire" && <>スタッフを増やしたので、来られた<b>{lastHonten.customers}人</b>全員にトリートメントを提供でき、客単価は<b>{yen(lastHonten.unitPrice)}</b>に。本店の売上は<b>{yen(lastHonten.sales)}</b>になりました（人件費も増えたので、詳しくは決算書で）。</>}
+                  {staffEventChoice === "reckless" && <>客単価は<b>{yen(lastHonten.unitPrice)}</b>に上がったのですが、接客時間が延びて対応できる上限が<b>{lastHonten.capacity}人</b>に下がり、来店希望{CURRENT_CUSTOMERS}人のうち<b className="text-red-600">{lastHonten.customers}人しか対応できませんでした</b>（{CURRENT_CUSTOMERS - lastHonten.customers}人を取りこぼし）。増員していれば全員に提供できました。</>}
                 </TalkBox>
                 <button onClick={() => setStaffEventResultPending(false)} className="text-[13px] text-amber-700 mt-2 mb-1">わかった →</button>
               </>
             )}
-            {promoResultPending && month > promoMonth && (
+            {promoResultPending && month > promoMonth && lastHonten && (
               <>
                 <TalkBox name="チーフスタイリスト" avatar={<Staff size={52} />}>
-                  {promoChoice === "run" && <>クーポンで新規のお客様が増えて、売上が<b>+{yen(PROMO_EXTRA_SALES)}</b>ほど伸びました。ただし配布コストで<b>−{yen(PROMO_EXTRA_OTHER)}</b>ほど経費もかかっています。</>}
+                  {promoChoice === "run" && <>クーポンで問い合わせは増えたのですが、業者さんの言う「新規+{PROMO.claimedNewCustomers}人」は今の上限<b>{lastHonten.capacity}人</b>では捌ききれず頭打ちで、実際に対応できたのは<b>{lastHonten.customers}人</b>でした。配布コストもかかっています。予測を鵜呑みにせず、まず上限（対応可能人数）と照らし合わせるべきでしたね。</>}
                 </TalkBox>
                 <button onClick={() => setPromoResultPending(false)} className="text-[13px] text-amber-700 mt-2 mb-1">わかった →</button>
               </>
@@ -480,26 +483,49 @@ export default function InheritDemo() {
 
             {staffEventChoice === null && staffDecisionOpen && (
               <>
-                {askedAll ? (
-                  <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-600 leading-relaxed">
-                    <div className="text-stone-500 mb-1">聞いた話を数字にしてみると――</div>
-                    現在：スタイリスト{staffCount}人 × {HOURS_PER_DAY}時間 × {DAYS_PER_MONTH}日 ÷ 平均{SERVICE_HOURS_BASE}時間 = <b>月{baseCapacity}人</b>まで対応可能（今のお客様は月{CURRENT_CUSTOMERS}人）
-                    <div className="border-t border-stone-200 my-2" />
-                    興味を持ちそうな{Math.round(INTEREST_RATIO * 100)}%のお客様の施術時間が{SERVICE_HOURS_TREATMENT}時間に伸びるとすると、平均は{avgServiceHours.toFixed(2)}時間。上限は<b>月{treatmentCapacity}人</b>に。
-                    {treatmentCapacity < CURRENT_CUSTOMERS
-                      ? <> 今のお客様（{CURRENT_CUSTOMERS}人）より<b className="text-red-600">少なくなってしまいます</b>。</>
-                      : <> 今のお客様（{CURRENT_CUSTOMERS}人）は何とか対応できそうです。</>}
-                  </div>
-                ) : (
+                {!askedAll && (
                   <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-500">
                     まだ詳しく聞いていないので、判断材料が少ない状態です。このまま決めることもできますが、先に「質問する」で状況を聞いておくと安心です。
+                  </div>
+                )}
+
+                {/* ⑤ 先に自分で予想 → 答え合わせ（因数分解を自分の頭で通す） */}
+                {askedAll && staffPredict === null && (
+                  <div className="bg-amber-50 rounded-xl p-3 mt-2 border border-amber-200 text-[13px] text-stone-700 leading-relaxed">
+                    <div className="font-medium mb-1">まず予想してみましょう</div>
+                    接客時間が{SERVICE_HOURS_BASE}→{treatmentHours.toFixed(1)}時間に伸びると、<b>増員せずに</b>今のお客様（月{CURRENT_CUSTOMERS}人）全員に対応できると思いますか？
+                    <div className="flex flex-col gap-2 mt-2">
+                      <button onClick={() => setStaffPredict("enough")}
+                        className="bg-white border border-stone-200 rounded-xl py-2 px-3 text-sm text-left hover:border-amber-400">対応できると思う</button>
+                      <button onClick={() => setStaffPredict("short")}
+                        className="bg-white border border-stone-200 rounded-xl py-2 px-3 text-sm text-left hover:border-amber-400">取りこぼしそう</button>
+                    </div>
+                  </div>
+                )}
+
+                {askedAll && staffPredict !== null && (
+                  <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-600 leading-relaxed">
+                    <div className="text-stone-500 mb-1">答え合わせ ― 数字にしてみると</div>
+                    現在：{honten.staffCount}人 × {HOURS_PER_DAY}時間 × {DAYS_PER_MONTH}日 ÷ {SERVICE_HOURS_BASE}時間 = <b>月{hontenNow.capacity}人</b>まで対応可能（今のお客様は月{CURRENT_CUSTOMERS}人）
+                    <div className="border-t border-stone-200 my-2" />
+                    接客時間が{treatmentHours.toFixed(1)}時間に伸びると、上限は<b>月{treatmentCapacity}人</b>に下がり、
+                    {treatmentCapacity < CURRENT_CUSTOMERS
+                      ? <> 今のお客様（{CURRENT_CUSTOMERS}人）のうち<b className="text-red-600">{CURRENT_CUSTOMERS - treatmentCapacity}人を取りこぼします</b>。</>
+                      : <> 今のお客様（{CURRENT_CUSTOMERS}人）は対応できます。</>}
+                    増員すると（{honten.staffCount + 1}人）上限は<b>月{treatmentCapacityWithHire}人</b>に戻ります。
+                    <div className="mt-2 text-[12px]">
+                      あなたの予想は「{staffPredict === "enough" ? "対応できる" : "取りこぼす"}」。
+                      {(treatmentCapacity < CURRENT_CUSTOMERS) === (staffPredict === "short")
+                        ? <b className="text-green-700"> 正解です！</b>
+                        : <b className="text-red-600"> 実は違いました。</b>}
+                    </div>
                   </div>
                 )}
                 <div className="text-[12px] text-stone-400 mt-1">迷ったら志村先生（公認会計士・税理士）に相談してみるのもいいかもしれません。</div>
                 <div className="flex flex-col gap-2 mt-2">
                   <button onClick={() => chooseStaffEvent("hire")}
                     className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">
-                    スタッフを1人増やして始める {askedAll && <span className="text-stone-400">（人件費 +¥300,000/月、上限は月{treatmentCapacityWithHire}人に）</span>}
+                    スタッフを1人増やして始める {askedAll && <span className="text-stone-400">（人件費 +{manYen(TREATMENT.hireWage)}/月、上限は月{treatmentCapacityWithHire}人に）</span>}
                   </button>
                   <button onClick={() => chooseStaffEvent("reckless")}
                     className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">
@@ -558,11 +584,15 @@ export default function InheritDemo() {
 
             {promoChoice === null && promoDecisionOpen && (
               <>
-                {promoAsked.length === PROMO_QUESTIONS.length ? (
+                {promoAskedAll ? (
                   <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-600 leading-relaxed">
                     <div className="text-stone-500 mb-1">聞いた話を数字にしてみると――</div>
-                    新規客{PROMO_EXTRA_CUSTOMERS}人 × 割引後客単価{yen(AVG_TICKET * (1 - PROMO_DISCOUNT_RATE))} = 売上<b>+{yen(PROMO_EXTRA_SALES)}</b>ほど見込めそうですが、
-                    配布コストで<b>−{yen(PROMO_EXTRA_OTHER)}</b>ほどの経費もかかります。
+                    業者さんは「新規<b>+{PROMO.claimedNewCustomers}人</b>」と言っていますが、まず上限（対応可能人数）と照らし合わせます。
+                    <div className="border-t border-stone-200 my-2" />
+                    今の上限は<b>月{hontenNow.capacity}人</b>、すでに<b>{hontenNow.customers}人</b>来ているので、追加で対応できるのは残り<b>{Math.max(0, hontenNow.capacity - hontenNow.customers)}人</b>まで。
+                    {hontenNow.customers + PROMO.claimedNewCustomers > hontenNow.capacity
+                      ? <> つまり<b className="text-red-600">+{PROMO.claimedNewCustomers}人は上限を超えて頭打ち</b>で、実際に増やせるのは最大+{Math.max(0, hontenNow.capacity - hontenNow.customers)}人。<b>予測を鵜呑みにすると見込み違い</b>になります。</>
+                      : <> 上限内なので概ね捌けそうです。</>}
                   </div>
                 ) : (
                   <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-500">
@@ -619,10 +649,55 @@ export default function InheritDemo() {
         <div className="flex flex-col gap-2 mt-3">
           <LocationCard icon="📊" title="決算書を見る" subtitle="損益計算書・貸借対照表を確認する" onClick={() => setTaxMode("statements")} />
           <LocationCard icon="💬" title="相談する" subtitle="経営の話をいろいろ聞く" onClick={() => setTaxMode("qa")} />
+          <LocationCard icon="💴" title="役員報酬を見直す" subtitle="社長の報酬を変えると数字がどう動くか" onClick={() => setTaxMode("draw")} />
         </div>
         <Btn onClick={() => setScreen("hub")}>← 事務所を出る</Btn>
       </Shell>
     );
+
+    // ===== 役員報酬の見直し（①の学び：黒字と現金は別物。税理士対話で改定できる）=====
+    if (taxMode === "draw") {
+      // 「もしこの報酬にしたら」の来月シミュレーション（現在のstoresで試算）
+      const sim = calcMonth(loanBalance, draw, stores);
+      return (
+        <Shell cash={cash} cashLabel={CASH_LABEL} transitioning={transitioning}>
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-md">役員報酬の見直し</span>
+            <span className="text-sm text-stone-500">{month}ヶ月目</span>
+          </div>
+          <div className="text-center pt-3"><Shimura size={64} /></div>
+          <TalkBox name="志村（公認会計士・税理士）" avatar={<Shimura size={52} />}>
+            社長の役員報酬は<b>会社の経費</b>です。スライダーを動かすと、来月の決算書と現金がどう変わるか試算できますよ。
+          </TalkBox>
+          <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200">
+            <div className="flex justify-between text-sm text-stone-600">
+              <span>役員報酬（月額）</span>
+              <span className="font-medium">{yen(draw)}</span>
+            </div>
+            <input type="range" min={DRAW_MIN} max={DRAW_MAX} step={DRAW_STEP} value={draw}
+              onChange={e => setDraw(parseInt(e.target.value))} className="w-full mt-1" />
+            <div className="flex justify-between text-[13px] text-stone-400"><span>切り詰める</span><span>父の代の水準</span></div>
+          </div>
+          <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200">
+            <div className="text-xs text-stone-500 mb-1">この報酬にした場合の来月の試算</div>
+            <MoneyRow label="当期純利益" cur={sim.netProfit} red={sim.netProfit < 0} showDiff={false} />
+            <MoneyRow label="現金の増減" cur={sim.cashChange} red={sim.cashChange < 0} showDiff={false} />
+            <div className="text-[12px] text-stone-500 mt-2 leading-relaxed">
+              {sim.netProfit > 0 && sim.cashChange < 0
+                ? <><b className="text-amber-700">利益は出ているのに現金は減っています。</b>元本返済がPLに出ないためです（＝利益とお金は別物）。報酬を下げると現金の減りが和らぎます。</>
+                : sim.netProfit <= 0
+                  ? <>この報酬だと<b className="text-red-600">赤字</b>です。報酬を下げると黒字に近づきます。</>
+                  : <>この報酬なら利益も現金も増えます。ただし社長の生活費とのバランスも大切です。</>}
+            </div>
+          </div>
+          <div className="text-[11px] text-stone-400 mt-2 leading-relaxed">
+            ※本来、役員報酬は期の途中で自由に変えられません（<b>定期同額給与</b>。原則、期首から3ヶ月以内に決めて1年間同額）。
+            ここでは学習のため、いつでも見直せるようにしています。
+          </div>
+          <Btn onClick={() => setTaxMode("menu")}>← この報酬で決定する</Btn>
+        </Shell>
+      );
+    }
 
     if (taxMode === "statements") {
       const PL_FIELDS = ["sales", "cogs", "gross", "rent", "labor", "executiveComp", "otherFixed", "depreciation", "operating", "interest", "ordinary", "netProfit"];
@@ -806,6 +881,8 @@ export default function InheritDemo() {
     const knownMenu = STAFF_QUESTIONS.filter(q => staffAsked.includes(q.key));
     const readTopics = lessonsRead.map(key => TAX_TOPICS.find(t => t.key === key)).filter(Boolean);
     const nothingYet = knownBaseline.length === 0 && knownMenu.length === 0 && readTopics.length === 0 && history.length === 0;
+    // ⑥ 自店の因数分解（本店）を蓄積表示
+    const hontenNote = seenBaseline ? deriveStore(stores[0]) : null;
 
     const toggle = (key) => setNoteOpenKey(k => (k === key ? null : key));
 
@@ -826,6 +903,23 @@ export default function InheritDemo() {
           <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200">
             <div className="text-xs text-stone-500 mb-1">📌 お店について分かっていること</div>
             {knownBaseline.map(q => <Row key={q.key} label={q.q.replace("を聞く", "")} val={q.a} />)}
+          </div>
+        )}
+
+        {hontenNote && (
+          <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200">
+            <div className="text-xs text-stone-500 mb-1">📌 本店の数字（売上の因数分解）</div>
+            <div className="text-[13px] text-stone-600 leading-relaxed">
+              売上 ＝ <b>客数</b> × <b>客単価</b><br />
+              客数は「対応可能人数（上限）」で頭打ちになる：
+            </div>
+            <div className="mt-1">
+              <Row label="対応可能人数（上限）" val={`${hontenNote.capacity}人/月`} />
+              <Row label="潜在需要" val={`${hontenNote.demand}人/月`} />
+              <Row label="実際の客数 ＝ min(需要, 上限)" val={`${hontenNote.customers}人/月`} />
+              <Row label="客単価" val={yen(hontenNote.unitPrice)} />
+            </div>
+            <div className="text-[12px] text-stone-400 mt-1">上限＝スタッフ数×営業時間×日数÷一人あたり接客時間</div>
           </div>
         )}
 
@@ -933,6 +1027,7 @@ export default function InheritDemo() {
   // ===== 銀行の再訪問（デモ終了） =====
   if (screen === "bankReview") {
     const good = cash >= 900000;
+    const lastProfit = lastResult ? lastResult.netProfit : 0;
     const chartData = [{ m: 0, v: START_CASH }, ...history.map(h => ({ m: h.m, v: h.cash }))];
     return (
       <Shell transitioning={transitioning}>
@@ -943,7 +1038,9 @@ export default function InheritDemo() {
           {" "}
           {good
             ? <>数字をきちんと見ながら経営されている印象です。このペースなら、当面の融資継続には問題ないでしょう。</>
-            : <>利益は出ていますが、現金の減り方が速いですね。このままだと、あと1〜2ヶ月で資金繰りが厳しくなります。役員報酬や資金繰りを一度見直された方がいい。</>}
+            : lastProfit > 0
+              ? <>利益は出ていますが、現金の減り方が速いですね。元本返済は利益に出てこない分、こうして現金だけ減っていきます。役員報酬や資金繰りを一度見直された方がいい。</>
+              : <>足元は赤字で、現金の減り方も速いですね。このままだと資金繰りが厳しくなります。役員報酬を含めた費用のバランスを見直された方がいい。</>}
         </TalkBox>
         <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200">
           <Row label="引き継ぎ時の現預金" val={yen(START_CASH)} />
