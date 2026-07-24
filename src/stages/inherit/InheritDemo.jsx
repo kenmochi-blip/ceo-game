@@ -64,6 +64,7 @@ export default function InheritDemo() {
   const [extraSales, setExtraSales] = useState(0);
   const [extraLabor, setExtraLabor] = useState(0);
   const [extraOther, setExtraOther] = useState(0);
+  const [extraCustomers, setExtraCustomers] = useState(0);
   const [seenStaffEvent, setSeenStaffEvent] = useState(false);
   const [staffEventChoice, setStaffEventChoice] = useState(null);
   const [staffAsked, setStaffAsked] = useState([]);
@@ -103,10 +104,12 @@ export default function InheritDemo() {
   const equityRatio = totalAssets > 0 ? (totalEquity / totalAssets) * 100 : 0;
 
   const goStore = () => {
+    // 保留中の結果報告（前のイベントの答え合わせ）を、新しい提案より必ず先に見せる
     if (!seenBaseline) setStoreMode("baseline");
-    else if (!seenStaffEvent && month > baselineMonth) setStoreMode("staffEvent");
     else if (staffEventResultPending && month > staffEventMonth) setStoreMode("recap");
-    else if (!seenPromo && month > staffEventMonth) setStoreMode("promo");
+    else if (promoResultPending && month > promoMonth) setStoreMode("recap");
+    else if (!seenStaffEvent && month > baselineMonth) setStoreMode("staffEvent");
+    else if (!seenPromo && seenStaffEvent && month > staffEventMonth) setStoreMode("promo");
     else setStoreMode("recap");
     setScreen("store");
   };
@@ -152,7 +155,7 @@ export default function InheritDemo() {
     setScreen("title"); setMonth(1); setCash(START_CASH); setLoanBalance(LOAN_START);
     setDraw(DRAW_DEFAULT); setHistory([]); setLastResult(null);
     setStoreMode(null);
-    setStaffCount(STAFF_COUNT); setExtraSales(0); setExtraLabor(0); setExtraOther(0);
+    setStaffCount(STAFF_COUNT); setExtraSales(0); setExtraLabor(0); setExtraOther(0); setExtraCustomers(0);
     setSeenStaffEvent(false); setStaffEventChoice(null); setStaffAsked([]);
     setStaffQAOpen(false); setStaffDecisionOpen(false);
     setStaffEventMonth(null); setStaffEventResultPending(false);
@@ -166,17 +169,20 @@ export default function InheritDemo() {
 
   const chooseStaffEvent = (choice) => {
     setStaffEventChoice(choice);
+    // 「見送る」は数字への影響がなく、翌月に答え合わせすることもないので保留扱いにしない
+    if (choice === "hold") return;
     setStaffEventMonth(month);
     setStaffEventResultPending(true);
-    if (choice === "hire") { setStaffCount(STAFF_COUNT + 1); setExtraSales(400000); setExtraLabor(300000); }
-    else if (choice === "reckless") { setExtraSales(50000); setExtraLabor(0); }
+    if (choice === "hire") { setStaffCount(STAFF_COUNT + 1); setExtraSales(s => s + 400000); setExtraLabor(l => l + 300000); setExtraCustomers(c => c + 80); }
+    else if (choice === "reckless") { setExtraSales(s => s + 50000); setExtraCustomers(c => c + 10); }
   };
 
   const choosePromo = (choice) => {
     setPromoChoice(choice);
+    if (choice === "hold") return;
     setPromoMonth(month);
     setPromoResultPending(true);
-    if (choice === "run") { setExtraSales(s => s + 80000); setExtraOther(o => o + 20000); }
+    if (choice === "run") { setExtraSales(s => s + 80000); setExtraOther(o => o + 20000); setExtraCustomers(c => c + 20); }
   };
 
   const motherMessage = () => {
@@ -317,8 +323,11 @@ export default function InheritDemo() {
 
       <div className="flex flex-col gap-2 mt-3">
         <LocationCard icon="🏠" title={STORE_NAME} subtitle="現場の様子を見る" onClick={goStore}
-          muted={!(!seenBaseline || (!seenStaffEvent && month > baselineMonth) ||
-            (staffEventResultPending && month > staffEventMonth) || (!seenPromo && month > staffEventMonth))} />
+          muted={!(!seenBaseline ||
+            (staffEventResultPending && month > staffEventMonth) ||
+            (promoResultPending && month > promoMonth) ||
+            (!seenStaffEvent && month > baselineMonth) ||
+            (!seenPromo && seenStaffEvent && month > staffEventMonth))} />
         <LocationCard icon="📋" title="志村税理士事務所" subtitle="決算書を見る・経営の話を相談する" onClick={goTax}
           muted={lessonsRead.length >= TAX_TOPICS.length || readThisMonth >= READS_PER_MONTH} />
         <LocationCard icon="👩" title="母に相談する" subtitle="困ったときのヒント" onClick={() => setScreen("mother")} />
@@ -351,8 +360,8 @@ export default function InheritDemo() {
         {lastResult && storeMode !== "baseline" && (
           <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200">
             <div className="text-xs text-stone-500 mb-1">先月（{month - 1}ヶ月目）の実績</div>
-            <Row label="客数" val={`${CURRENT_CUSTOMERS}人`} />
-            <Row label="客単価" val={yen(Math.round(lastResult.sales / CURRENT_CUSTOMERS))} />
+            <Row label="客数" val={`${CURRENT_CUSTOMERS + extraCustomers}人`} />
+            <Row label="客単価" val={yen(Math.round(lastResult.sales / (CURRENT_CUSTOMERS + extraCustomers)))} />
           </div>
         )}
 
@@ -387,16 +396,14 @@ export default function InheritDemo() {
                 <TalkBox name="チーフスタイリスト" avatar={<Staff size={52} mood={staffEventChoice === "reckless" ? "worried" : "normal"} />}>
                   {staffEventChoice === "hire" && <>スタッフを増やしたことで、売上が<b>+{yen(400000)}</b>、人件費が<b>−{yen(300000)}</b>になりました（差し引き+{yen(100000)}）。</>}
                   {staffEventChoice === "reckless" && <>やっぱり捌ききれずお客様が離れてしまい、見込んでいたほどの上乗せにはならず、売上は<b>+{yen(50000)}</b>にとどまりました。因数分解してから決めるべきでしたね。</>}
-                  {staffEventChoice === "hold" && <>あの時は見送って正解でしたね。数字がもう少し落ち着いてから、また検討しましょう。</>}
                 </TalkBox>
                 <button onClick={() => setStaffEventResultPending(false)} className="text-[13px] text-amber-700 mt-2 mb-1">わかった →</button>
               </>
             )}
             {promoResultPending && month > promoMonth && (
               <>
-                <TalkBox name="チーフスタイリスト" avatar={<Staff size={52} mood={promoChoice === "run" ? "normal" : "normal"} />}>
+                <TalkBox name="チーフスタイリスト" avatar={<Staff size={52} />}>
                   {promoChoice === "run" && <>クーポンで新規のお客様が増えて、売上が<b>+{yen(80000)}</b>ほど伸びました。ただし配布コストで<b>−{yen(20000)}</b>ほど経費もかかっています。</>}
-                  {promoChoice === "hold" && <>今回のクーポンは見送りました。また良さそうな企画があれば教えますね。</>}
                 </TalkBox>
                 <button onClick={() => setPromoResultPending(false)} className="text-[13px] text-amber-700 mt-2 mb-1">わかった →</button>
               </>
@@ -474,9 +481,11 @@ export default function InheritDemo() {
 
             {staffEventChoice !== null && (
               <>
-                <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-500">
-                  結果はまた来月、詳しく教えますね。
-                </div>
+                {staffEventChoice !== "hold" && (
+                  <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-500">
+                    結果はまた来月、詳しく教えますね。
+                  </div>
+                )}
                 <button onClick={() => setSeenStaffEvent(true)} className="text-[13px] text-amber-700 mt-2">わかった →</button>
               </>
             )}
@@ -541,9 +550,11 @@ export default function InheritDemo() {
 
             {promoChoice !== null && (
               <>
-                <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-500">
-                  結果はまた来月、詳しく教えますね。
-                </div>
+                {promoChoice !== "hold" && (
+                  <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-500">
+                    結果はまた来月、詳しく教えますね。
+                  </div>
+                )}
                 <button onClick={() => setSeenPromo(true)} className="text-[13px] text-amber-700 mt-2">わかった →</button>
               </>
             )}
