@@ -77,7 +77,6 @@ export default function InheritDemo() {
   const [equityStreak, setEquityStreak] = useState(0);
   const [financingOffered, setFinancingOffered] = useState(false);
 
-  const monthsUntilReview = DEMO_MONTHS - month + 1;
   const accumDep = history.reduce((s, h) => s + h.depreciation, 0);
   const retainedEarnings = RETAINED_EARNINGS_INIT + history.reduce((sum, h) => sum + h.netProfit, 0);
   const fixedAssetsBook = Math.max(0, FIXED_ASSETS - accumDep);
@@ -283,16 +282,6 @@ export default function InheritDemo() {
         <span className="text-sm text-stone-500">{month}ヶ月目</span>
       </div>
       <div className="text-center pt-3"><Player size={64} mood={cash < 500000 ? "worried" : "normal"} gender={gender} /></div>
-      <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-500 text-center">
-        銀行の剱持さんが次にいらっしゃるまで、あと <b className="text-stone-700">{monthsUntilReview}</b> ヶ月
-      </div>
-      <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200 text-[12px] text-stone-500 text-center">
-        自己資本比率 <b className={equityRatio >= EQUITY_RATIO_TARGET ? "text-green-700" : "text-stone-700"}>{equityRatio.toFixed(1)}%</b>
-        <span className="text-stone-400">（まずは{EQUITY_RATIO_TARGET}%超えを目指そう）</span>
-        {equityStreak > 0 && (
-          <span className="text-amber-700"> ・{EQUITY_RATIO_TARGET}%超え {equityStreak}/{EQUITY_STREAK_TARGET}ヶ月目</span>
-        )}
-      </div>
 
       <div className="flex flex-col gap-2 mt-3">
         <LocationCard icon="🏠" title={STORE_NAME} subtitle="現場の様子を見る" onClick={goStore}
