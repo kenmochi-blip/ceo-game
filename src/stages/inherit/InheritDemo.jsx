@@ -365,7 +365,7 @@ export default function InheritDemo() {
             {staffEventChoice === null && !staffQAOpen && !staffDecisionOpen && (
               <div className="flex flex-col gap-2 mt-2">
                 <Btn onClick={() => setStaffDecisionOpen(true)}>やってみる →</Btn>
-                <button onClick={() => setStaffQAOpen(true)} className="text-[13px] text-amber-700 mt-1">また質問する</button>
+                <button onClick={() => setStaffQAOpen(true)} className="text-[13px] text-amber-700 mt-1">質問する</button>
               </div>
             )}
 
@@ -397,7 +397,7 @@ export default function InheritDemo() {
                   </div>
                 ) : (
                   <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-500">
-                    まだ詳しく聞いていないので、判断材料が少ない状態です。このまま決めることもできますが、先に「また質問する」で状況を聞いておくと安心です。
+                    まだ詳しく聞いていないので、判断材料が少ない状態です。このまま決めることもできますが、先に「質問する」で状況を聞いておくと安心です。
                   </div>
                 )}
                 <div className="flex flex-col gap-2 mt-2">
