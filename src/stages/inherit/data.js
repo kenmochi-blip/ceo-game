@@ -21,6 +21,10 @@ export const DRAW_STEP = 50000;
 
 export const DEMO_MONTHS = 4;           // このデモで進める月数（4ヶ月後に銀行が再訪問）
 
+// ── 自己資本比率の目標ライン ──
+export const EQUITY_RATIO_TARGET = 30;   // まず目指すべき自己資本比率（%）
+export const EQUITY_STREAK_TARGET = 3;   // この目標を連続で維持すると銀行から前向きな話が出る月数
+
 // ── 貸借対照表（BS）用の定数 ──
 export const FIXED_ASSETS = 5000000;      // 什器・敷金保証金など（減価償却により帳簿価額が減っていく）
 export const CAPITAL_STOCK = 300000;      // 資本金

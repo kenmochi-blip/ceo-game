@@ -2,7 +2,8 @@ import BSDiagram from "./BSDiagram";
 import PLDiagram from "./PLDiagram";
 import MoneyRow from "./MoneyRow";
 import {
-  PRIOR_YEAR_PL, START_CASH, LOAN_START, FIXED_ASSETS, CAPITAL_STOCK, RETAINED_EARNINGS_INIT, manYen, yen,
+  PRIOR_YEAR_PL, START_CASH, LOAN_START, FIXED_ASSETS, CAPITAL_STOCK, RETAINED_EARNINGS_INIT,
+  EQUITY_RATIO_TARGET, EQUITY_STREAK_TARGET, manYen, yen,
 } from "./data";
 
 const PRIOR_TOTAL_ASSETS = START_CASH + FIXED_ASSETS;
@@ -97,6 +98,8 @@ export const TAX_TOPICS = [
         経営が安定していると見られます。今のフルールさんの数字だと、こんなイメージです。
         <BSDiagram totalAssets={totalAssets} liabilities={liabilities} equity={equity} ratio={ratio} />
         借入がまだ多く残っている分、比率は高くありません。利益を積み上げていくことで、少しずつ改善していきます。
+        まずは<b>{EQUITY_RATIO_TARGET}%</b>を超える水準を目指しましょう。この水準を<b>{EQUITY_STREAK_TARGET}ヶ月連続</b>で維持できると、
+        銀行からも前向きな融資の話が出てくるようになりますよ。
       </>
     ),
   },

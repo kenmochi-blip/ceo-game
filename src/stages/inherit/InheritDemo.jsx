@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   COMPANY_NAME, STORE_NAME, START_CASH, LOAN_START, ANNUAL_RATE,
   PRINCIPAL_PAYMENT, DRAW_DEFAULT, DRAW_MIN, DRAW_MAX, DRAW_STEP,
-  DEMO_MONTHS, yen, manYen, calcMonth,
+  DEMO_MONTHS, EQUITY_RATIO_TARGET, EQUITY_STREAK_TARGET, yen, manYen, calcMonth,
   STAFF_COUNT, SERVICE_HOURS_BASE, SERVICE_HOURS_TREATMENT, CURRENT_CUSTOMERS, AVG_TICKET,
   INTEREST_RATIO, capacity, blendedServiceHours,
   HOURS_PER_DAY, DAYS_PER_MONTH, FIXED_ASSETS, CAPITAL_STOCK, RETAINED_EARNINGS_INIT,
@@ -72,6 +72,9 @@ export default function InheritDemo() {
   const [lessonsRead, setLessonsRead] = useState([]);
   const [readThisMonth, setReadThisMonth] = useState(0);
 
+  const [equityStreak, setEquityStreak] = useState(0);
+  const [financingOffered, setFinancingOffered] = useState(false);
+
   const monthsUntilReview = DEMO_MONTHS - month + 1;
   const accumDep = history.reduce((s, h) => s + h.depreciation, 0);
   const retainedEarnings = RETAINED_EARNINGS_INIT + history.reduce((sum, h) => sum + h.netProfit, 0);
@@ -99,7 +102,24 @@ export default function InheritDemo() {
       setCash(newCash);
       setLoanBalance(result.newLoanBalance);
       setReadThisMonth(0);
+
+      const newAccumDep = accumDep + result.depreciation;
+      const newRetained = retainedEarnings + result.netProfit;
+      const newFab = Math.max(0, FIXED_ASSETS - newAccumDep);
+      const newTotalAssets = newCash + newFab;
+      const newTotalEquity = CAPITAL_STOCK + newRetained;
+      const newRatio = newTotalAssets > 0 ? (newTotalEquity / newTotalAssets) * 100 : 0;
+      const newStreak = newRatio >= EQUITY_RATIO_TARGET ? equityStreak + 1 : 0;
+      setEquityStreak(newStreak);
+
       if (newCash < 0) { setScreen("gameover"); setTransitioning(false); return; }
+      if (newStreak >= EQUITY_STREAK_TARGET && !financingOffered) {
+        setFinancingOffered(true);
+        setMonth(m => m + 1);
+        setScreen("bankFinancingOffer");
+        setTransitioning(false);
+        return;
+      }
       if (month >= DEMO_MONTHS) { setMonth(m => m + 1); setScreen("bankReview"); setTransitioning(false); return; }
       setMonth(m => m + 1);
       setScreen("hub");
@@ -116,6 +136,7 @@ export default function InheritDemo() {
     setSeenBaseline(false); setBaselineAsked([]); setBaselineMonth(null);
     setIntroExplainChoice(null); setNoteOpenKey(null); setPlViewMode("month");
     setTaxMode("menu"); setTaxTopic(null); setLessonsRead([]); setReadThisMonth(0);
+    setEquityStreak(0); setFinancingOffered(false);
   };
 
   const chooseStaffEvent = (choice) => {
@@ -262,10 +283,19 @@ export default function InheritDemo() {
       <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-500 text-center">
         銀行の剱持さんが次にいらっしゃるまで、あと <b className="text-stone-700">{monthsUntilReview}</b> ヶ月
       </div>
+      <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200 text-[12px] text-stone-500 text-center">
+        自己資本比率 <b className={equityRatio >= EQUITY_RATIO_TARGET ? "text-green-700" : "text-stone-700"}>{equityRatio.toFixed(1)}%</b>
+        <span className="text-stone-400">（まずは{EQUITY_RATIO_TARGET}%超えを目指そう）</span>
+        {equityStreak > 0 && (
+          <span className="text-amber-700"> ・{EQUITY_RATIO_TARGET}%超え {equityStreak}/{EQUITY_STREAK_TARGET}ヶ月目</span>
+        )}
+      </div>
 
       <div className="flex flex-col gap-2 mt-3">
-        <LocationCard icon="🏠" title={STORE_NAME} subtitle="現場の様子を見る" onClick={goStore} />
-        <LocationCard icon="📋" title="志村税理士事務所" subtitle="決算書を見る・経営の話を相談する" onClick={goTax} />
+        <LocationCard icon="🏠" title={STORE_NAME} subtitle="現場の様子を見る" onClick={goStore}
+          muted={!(!seenBaseline || (!seenStaffEvent && month > baselineMonth))} />
+        <LocationCard icon="📋" title="志村税理士事務所" subtitle="決算書を見る・経営の話を相談する" onClick={goTax}
+          muted={lessonsRead.length >= TAX_TOPICS.length || readThisMonth >= READS_PER_MONTH} />
         <LocationCard icon="👩" title="母に相談する" subtitle="困ったときのヒント" onClick={() => setScreen("mother")} />
         <LocationCard icon="📔" title="ノートを見返す" subtitle="これまで分かったことを振り返る" onClick={() => { setNoteOpenKey(null); setScreen("notebook"); }} />
       </div>
@@ -707,6 +737,24 @@ export default function InheritDemo() {
     </Shell>
   );
 
+  // ===== 銀行からの融資の打診（自己資本比率の目標を一定期間維持した時） =====
+  if (screen === "bankFinancingOffer") return (
+    <Shell cash={cash} cashLabel={CASH_LABEL} transitioning={transitioning}>
+      <div className="text-center pt-6"><Banker size={80} /></div>
+      <TalkBox name="剱持（銀行担当者）" avatar={<Banker size={52} />}>
+        剱持です。実は数字を拝見していてご相談が。
+      </TalkBox>
+      <TalkBox name="剱持（銀行担当者）" avatar={<Banker size={52} />}>
+        自己資本比率が{EQUITY_RATIO_TARGET}%を{EQUITY_STREAK_TARGET}ヶ月連続で超えていますね。財務が安定してきた証拠です。
+        もしよろしければ、新規出店など前向きな投資に向けた追加融資も、ご相談に乗れますよ。
+      </TalkBox>
+      <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200">
+        <Row label="自己資本比率" val={equityRatio.toFixed(1) + "%"} bold />
+      </div>
+      <Btn onClick={() => setScreen("hub")}>ありがとうございます →</Btn>
+    </Shell>
+  );
+
   // ===== 銀行の再訪問（デモ終了） =====
   if (screen === "bankReview") {
     const good = cash >= 900000;
@@ -761,13 +809,14 @@ export default function InheritDemo() {
   return null;
 }
 
-function LocationCard({ icon, title, subtitle, onClick }) {
+function LocationCard({ icon, title, subtitle, onClick, muted }) {
   return (
     <button onClick={onClick}
-      className="flex items-center gap-3 bg-white border border-stone-200 rounded-xl p-3 text-left hover:border-amber-400 transition-colors">
-      <span className="text-2xl">{icon}</span>
+      className={"flex items-center gap-3 border rounded-xl p-3 text-left transition-colors " +
+        (muted ? "bg-stone-100 border-stone-200 opacity-60 hover:border-stone-300" : "bg-white border-stone-200 hover:border-amber-400")}>
+      <span className={"text-2xl " + (muted ? "grayscale" : "")}>{icon}</span>
       <div>
-        <div className="text-sm font-medium text-stone-700">{title}</div>
+        <div className={"text-sm font-medium " + (muted ? "text-stone-500" : "text-stone-700")}>{title}</div>
         <div className="text-[12px] text-stone-400">{subtitle}</div>
       </div>
     </button>
