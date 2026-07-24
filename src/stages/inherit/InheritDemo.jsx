@@ -22,6 +22,23 @@ import Spark from "../../components/charts/Spark";
 const READS_PER_MONTH = 3;
 const CASH_LABEL = "会社の現預金";
 
+// 前月比（符号つき）フォーマッタ
+const signedNum = (d, unit = "") => d === 0 ? `±0${unit}` : (d > 0 ? "+" : "−") + Math.abs(d).toLocaleString() + unit;
+const signedYen = (d) => d === 0 ? "±0" : (d > 0 ? "+" : "−") + "¥" + Math.abs(d).toLocaleString();
+
+// PL同様に、値と（前月比）の位置を行ごとに幅固定で縦に揃える汎用行
+function StatRow({ label, val, diff, bold }) {
+  return (
+    <div className="flex justify-between py-1">
+      <span className={"text-sm " + (bold ? "font-medium text-stone-700" : "text-stone-500")}>{label}</span>
+      <span className="flex items-baseline justify-end">
+        <span className={"text-sm tabular-nums text-right w-24 shrink-0 text-stone-700 " + (bold ? "font-medium" : "")}>{val}</span>
+        <span className="text-[10px] text-stone-400 text-right w-20 shrink-0 ml-1 tabular-nums whitespace-nowrap">{diff || ""}</span>
+      </span>
+    </div>
+  );
+}
+
 // 初回の店舗ヒアリング（現状把握。ここが終わった翌月からメニュー提案イベントが起きる）
 const BASELINE_QUESTIONS = [
   { key: "customers", q: "今の客数を聞く", a: `月${CURRENT_CUSTOMERS}人くらいです。` },
@@ -372,6 +389,7 @@ export default function InheritDemo() {
     const treatmentCapacity = capacityOf(honten.staffCount, treatmentHours, honten.hoursPerDay, honten.daysPerMonth);
     const treatmentCapacityWithHire = capacityOf(honten.staffCount + 1, treatmentHours, honten.hoursPerDay, honten.daysPerMonth);
     const lastHonten = lastStoreResults ? lastStoreResults[0] : null;
+    const prevHonten = history.length >= 2 ? history[history.length - 2].storeResults[0] : null; // 前月比の比較対象
     const utilization = lastHonten ? Math.round((lastHonten.customers / hontenNow.capacity) * 100) : null;
     return (
       <Shell cash={cash} cashLabel={CASH_LABEL} transitioning={transitioning}>
@@ -382,10 +400,13 @@ export default function InheritDemo() {
 
         {lastHonten && storeMode !== "baseline" && (
           <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200">
-            <div className="text-xs text-stone-500 mb-1">先月（{month - 1}ヶ月目）の本店実績</div>
-            <Row label="客数" val={`${lastHonten.customers}人`} />
-            <Row label="客単価" val={yen(lastHonten.unitPrice)} />
-            <Row label="売上（客数×客単価）" val={yen(lastHonten.sales)} bold />
+            <div className="text-xs text-stone-500 mb-1">先月（{month - 1}ヶ月目）の本店実績<span className="text-stone-400">（）内は前月比</span></div>
+            <StatRow label="客数" val={`${lastHonten.customers}人`}
+              diff={prevHonten ? `（${signedNum(lastHonten.customers - prevHonten.customers, "人")}）` : ""} />
+            <StatRow label="客単価" val={yen(lastHonten.unitPrice)}
+              diff={prevHonten ? `（${signedYen(lastHonten.unitPrice - prevHonten.unitPrice)}）` : ""} />
+            <StatRow label="売上（客数×客単価）" val={yen(lastHonten.sales)} bold
+              diff={prevHonten ? `（${signedYen(lastHonten.sales - prevHonten.sales)}）` : ""} />
           </div>
         )}
 
