@@ -380,6 +380,15 @@ export default function InheritDemo() {
           <span className="text-sm text-stone-500">{month}ヶ月目</span>
         </div>
 
+        {lastHonten && storeMode !== "baseline" && (
+          <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200">
+            <div className="text-xs text-stone-500 mb-1">先月（{month - 1}ヶ月目）の本店実績</div>
+            <Row label="客数" val={`${lastHonten.customers}人`} />
+            <Row label="客単価" val={yen(lastHonten.unitPrice)} />
+            <Row label="売上（客数×客単価）" val={yen(lastHonten.sales)} bold />
+          </div>
+        )}
+
         {storeMode !== "baseline" && (
           <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200">
             <div className="text-xs text-stone-500 mb-1">お店の今の状態</div>
@@ -390,15 +399,6 @@ export default function InheritDemo() {
             {lastHonten && (
               <Row label="📊 稼働率（先月客数÷上限）" val={`${utilization}%`} red={utilization >= 100} />
             )}
-          </div>
-        )}
-
-        {lastHonten && storeMode !== "baseline" && (
-          <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200">
-            <div className="text-xs text-stone-500 mb-1">先月（{month - 1}ヶ月目）の本店実績</div>
-            <Row label="客数" val={`${lastHonten.customers}人`} />
-            <Row label="客単価" val={yen(lastHonten.unitPrice)} />
-            <Row label="売上（客数×客単価）" val={yen(lastHonten.sales)} bold />
           </div>
         )}
 
