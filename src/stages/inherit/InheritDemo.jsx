@@ -293,45 +293,41 @@ export default function InheritDemo() {
           <span className="text-sm text-stone-500">{month}ヶ月目</span>
         </div>
 
+        {lastResult && storeMode !== "baseline" && (
+          <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200">
+            <div className="text-xs text-stone-500 mb-1">先月（{month - 1}ヶ月目）の実績</div>
+            <Row label="客数" val={`${CURRENT_CUSTOMERS}人`} />
+            <Row label="客単価" val={yen(Math.round(lastResult.sales / CURRENT_CUSTOMERS))} />
+          </div>
+        )}
+
         {storeMode === "baseline" && (
           <>
             <TalkBox name="チーフスタイリスト" avatar={<Staff size={52} />}>
               まだ営業を始めたばかりですね。まずはお店の状況を聞いてみましょうか。
             </TalkBox>
-            {!baselineAskedAll && (
-              <div className="flex flex-col gap-2 mt-2">
-                {BASELINE_QUESTIONS.map(q => (
-                  baselineAsked.includes(q.key)
-                    ? <TalkBox key={q.key} name="チーフスタイリスト" avatar={<Staff size={44} />}>{q.a}</TalkBox>
-                    : <button key={q.key} onClick={() => setBaselineAsked(a => [...a, q.key])}
-                        className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">{q.q}</button>
-                ))}
-              </div>
-            )}
+            <div className="flex flex-col gap-2 mt-2">
+              {BASELINE_QUESTIONS.map(q => (
+                baselineAsked.includes(q.key)
+                  ? <TalkBox key={q.key} name="チーフスタイリスト" avatar={<Staff size={44} />}>{q.a}</TalkBox>
+                  : <button key={q.key} onClick={() => setBaselineAsked(a => [...a, q.key])}
+                      className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">{q.q}</button>
+              ))}
+            </div>
             {baselineAskedAll && (
               <>
                 <TalkBox name="チーフスタイリスト" avatar={<Staff size={52} />}>
                   これで一通り、お店の状況が分かりましたね。
                 </TalkBox>
-                <button onClick={() => { setSeenBaseline(true); setBaselineMonth(month); setStoreMode("recap"); }} className="text-[13px] text-amber-700 mt-2">わかった →</button>
+                <button onClick={() => { setSeenBaseline(true); setBaselineMonth(month); }} className="text-[13px] text-amber-700 mt-2">わかった →</button>
               </>
             )}
           </>
         )}
 
         {storeMode === "recap" && (
-          <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200">
-            {lastResult && (
-              <>
-                <div className="text-xs text-stone-500 mb-1">先月（{month - 1}ヶ月目）の実績</div>
-                <Row label="客数" val={`${CURRENT_CUSTOMERS}人`} />
-                <Row label="客単価" val={yen(Math.round(lastResult.sales / CURRENT_CUSTOMERS))} />
-                <div className="border-t border-stone-100 my-2" />
-              </>
-            )}
-            <div className="text-sm text-stone-600">
-              特に変わったことはなく、スタッフたちが元気にお店を切り盛りしています。損益など詳しい数字は志村さんの事務所へ。
-            </div>
+          <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200 text-sm text-stone-600">
+            特に変わったことはなく、スタッフたちが元気にお店を切り盛りしています。損益など詳しい数字は志村さんの事務所へ。
           </div>
         )}
 
@@ -390,7 +386,7 @@ export default function InheritDemo() {
                   {staffEventChoice === "reckless" && <>捌ききれずお客様が離れてしまい、見込んでいたほどの上乗せにはならず、来月の売上は<b>+{yen(50000)}</b>にとどまりそうです。因数分解してから決めるべきでしたね。</>}
                   {staffEventChoice === "hold" && <>今回は現状維持です。数字がもう少し落ち着いてから、また検討しましょう。</>}
                 </div>
-                <button onClick={() => { setSeenStaffEvent(true); setStoreMode("recap"); }} className="text-[13px] text-amber-700 mt-2">わかった →</button>
+                <button onClick={() => setSeenStaffEvent(true)} className="text-[13px] text-amber-700 mt-2">わかった →</button>
               </>
             )}
           </>
