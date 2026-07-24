@@ -59,6 +59,8 @@ export default function InheritDemo() {
   const [seenStaffEvent, setSeenStaffEvent] = useState(false);
   const [staffEventChoice, setStaffEventChoice] = useState(null);
   const [staffAsked, setStaffAsked] = useState([]);
+  const [staffQAOpen, setStaffQAOpen] = useState(false);
+  const [staffDecisionOpen, setStaffDecisionOpen] = useState(false);
   const [seenBaseline, setSeenBaseline] = useState(false);
   const [baselineAsked, setBaselineAsked] = useState([]);
   const [baselineMonth, setBaselineMonth] = useState(null);
@@ -133,6 +135,7 @@ export default function InheritDemo() {
     setStoreMode(null);
     setStaffCount(STAFF_COUNT); setExtraSales(0); setExtraLabor(0);
     setSeenStaffEvent(false); setStaffEventChoice(null); setStaffAsked([]);
+    setStaffQAOpen(false); setStaffDecisionOpen(false);
     setSeenBaseline(false); setBaselineAsked([]); setBaselineMonth(null);
     setIntroExplainChoice(null); setNoteOpenKey(null); setPlViewMode("month");
     setTaxMode("menu"); setTaxTopic(null); setLessonsRead([]); setReadThisMonth(0);
@@ -370,32 +373,48 @@ export default function InheritDemo() {
               {staffEventChoice === "hold" && <>そうですか。また考えが変わったら言ってください。</>}
             </TalkBox>
 
-            {staffEventChoice === null && (
+            {staffEventChoice === null && !staffQAOpen && !staffDecisionOpen && (
               <div className="flex flex-col gap-2 mt-2">
-                {STAFF_QUESTIONS.map(q => (
-                  staffAsked.includes(q.key)
-                    ? <TalkBox key={q.key} name="チーフスタイリスト" avatar={<Staff size={44} />}>{q.a}</TalkBox>
-                    : <button key={q.key} onClick={() => setStaffAsked(a => [...a, q.key])}
-                        className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">{q.q}</button>
-                ))}
+                <Btn onClick={() => setStaffDecisionOpen(true)}>やってみる →</Btn>
+                <button onClick={() => setStaffQAOpen(true)} className="text-[13px] text-amber-700 mt-1">また質問する</button>
               </div>
             )}
 
-            {staffEventChoice === null && askedAll && (
+            {staffEventChoice === null && staffQAOpen && (
               <>
-                <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-600 leading-relaxed">
-                  <div className="text-stone-500 mb-1">聞いた話を数字にしてみると――</div>
-                  現在：スタイリスト{staffCount}人 × {HOURS_PER_DAY}時間 × {DAYS_PER_MONTH}日 ÷ 平均{SERVICE_HOURS_BASE}時間 = <b>月{baseCapacity}人</b>まで対応可能（今のお客様は月{CURRENT_CUSTOMERS}人）
-                  <div className="border-t border-stone-200 my-2" />
-                  興味を持ちそうな{Math.round(INTEREST_RATIO * 100)}%のお客様の施術時間が{SERVICE_HOURS_TREATMENT}時間に伸びるとすると、平均は{avgServiceHours.toFixed(2)}時間。上限は<b>月{treatmentCapacity}人</b>に。
-                  {treatmentCapacity < CURRENT_CUSTOMERS
-                    ? <> 今のお客様（{CURRENT_CUSTOMERS}人）より<b className="text-red-600">少なくなってしまいます</b>。</>
-                    : <> 今のお客様（{CURRENT_CUSTOMERS}人）は何とか対応できそうです。</>}
+                <div className="flex flex-col gap-2 mt-2">
+                  {STAFF_QUESTIONS.map(q => (
+                    staffAsked.includes(q.key)
+                      ? <TalkBox key={q.key} name="チーフスタイリスト" avatar={<Staff size={44} />}>{q.a}</TalkBox>
+                      : <button key={q.key} onClick={() => setStaffAsked(a => [...a, q.key])}
+                          className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">{q.q}</button>
+                  ))}
                 </div>
+                <button onClick={() => setStaffQAOpen(false)} className="text-[13px] text-amber-700 mt-2">← 戻る</button>
+              </>
+            )}
+
+            {staffEventChoice === null && staffDecisionOpen && (
+              <>
+                {askedAll ? (
+                  <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-600 leading-relaxed">
+                    <div className="text-stone-500 mb-1">聞いた話を数字にしてみると――</div>
+                    現在：スタイリスト{staffCount}人 × {HOURS_PER_DAY}時間 × {DAYS_PER_MONTH}日 ÷ 平均{SERVICE_HOURS_BASE}時間 = <b>月{baseCapacity}人</b>まで対応可能（今のお客様は月{CURRENT_CUSTOMERS}人）
+                    <div className="border-t border-stone-200 my-2" />
+                    興味を持ちそうな{Math.round(INTEREST_RATIO * 100)}%のお客様の施術時間が{SERVICE_HOURS_TREATMENT}時間に伸びるとすると、平均は{avgServiceHours.toFixed(2)}時間。上限は<b>月{treatmentCapacity}人</b>に。
+                    {treatmentCapacity < CURRENT_CUSTOMERS
+                      ? <> 今のお客様（{CURRENT_CUSTOMERS}人）より<b className="text-red-600">少なくなってしまいます</b>。</>
+                      : <> 今のお客様（{CURRENT_CUSTOMERS}人）は何とか対応できそうです。</>}
+                  </div>
+                ) : (
+                  <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-500">
+                    まだ詳しく聞いていないので、判断材料が少ない状態です。このまま決めることもできますが、先に「また質問する」で状況を聞いておくと安心です。
+                  </div>
+                )}
                 <div className="flex flex-col gap-2 mt-2">
                   <button onClick={() => chooseStaffEvent("hire")}
                     className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">
-                    スタッフを1人増やして始める <span className="text-stone-400">（人件費 +¥300,000/月、上限は月{treatmentCapacityWithHire}人に）</span>
+                    スタッフを1人増やして始める {askedAll && <span className="text-stone-400">（人件費 +¥300,000/月、上限は月{treatmentCapacityWithHire}人に）</span>}
                   </button>
                   <button onClick={() => chooseStaffEvent("reckless")}
                     className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">
@@ -406,6 +425,7 @@ export default function InheritDemo() {
                     今回は見送る
                   </button>
                 </div>
+                <button onClick={() => setStaffDecisionOpen(false)} className="text-[13px] text-amber-700 mt-2">← 戻る</button>
               </>
             )}
 
