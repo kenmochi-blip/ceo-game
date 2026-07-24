@@ -77,14 +77,16 @@ export const manYenDiff = d => {
 export const manYenRow = (cur, prev) =>
   prev === undefined || prev === null ? manYen(cur) : `${manYen(cur)}（${manYenDiff(cur - prev)}）`;
 
-// 1ヶ月分の経営結果を計算する（executiveCompは役員報酬＝PL費用。extraSales/extraLaborはスタッフイベント等の上乗せ分）
-export function calcMonth(loanBalance, executiveComp, extraSales = 0, extraLabor = 0) {
+// 1ヶ月分の経営結果を計算する（executiveCompは役員報酬＝PL費用。extraSales/extraLaborはスタッフイベント等の上乗せ分。
+// extraOtherは販促キャンペーン等の追加経費＝その他固定費に上乗せする分）
+export function calcMonth(loanBalance, executiveComp, extraSales = 0, extraLabor = 0, extraOther = 0) {
   const sales = SALES + extraSales;
   const cogs = Math.round(sales * COGS_RATE);
   const gross = sales - cogs;
   const labor = LABOR + extraLabor;
+  const otherFixed = OTHER_FIXED + extraOther;
   const depreciation = DEPRECIATION_PER_MONTH;
-  const operating = gross - RENT - labor - OTHER_FIXED - executiveComp - depreciation; // 営業利益
+  const operating = gross - RENT - labor - otherFixed - executiveComp - depreciation; // 営業利益
   const interest = Math.round(loanBalance * (ANNUAL_RATE / 12));
   const ordinary = operating - interest; // 経常利益
   const netProfit = ordinary;            // 当期純利益（特別損益・税金は考慮しない簡易モデル）
@@ -92,7 +94,7 @@ export function calcMonth(loanBalance, executiveComp, extraSales = 0, extraLabor
   // 減価償却費は現金を伴わない費用なので、キャッシュの増減では利益に足し戻す。元本返済は差し引く。
   const cashChange = netProfit - principal + depreciation;
   return {
-    sales, cogs, gross, rent: RENT, labor, otherFixed: OTHER_FIXED, executiveComp, depreciation,
+    sales, cogs, gross, rent: RENT, labor, otherFixed, executiveComp, depreciation,
     operating, interest, ordinary, netProfit, principal, cashChange,
     newLoanBalance: loanBalance - principal,
   };

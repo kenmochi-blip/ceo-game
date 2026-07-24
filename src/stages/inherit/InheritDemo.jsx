@@ -38,6 +38,13 @@ const STAFF_QUESTIONS = [
   { key: "interestRatio", q: "興味がありそうな客の比率を聞く", a: `肌感ですが、だいたい${Math.round(INTEREST_RATIO * 100)}%くらいのお客様が興味を持ちそうです。` },
 ];
 
+// 販促キャンペーン（新規客クーポン）の追加ヒアリング
+const PROMO_QUESTIONS = [
+  { key: "cost", q: "配布コストを聞く", a: "印刷費やSNS広告費で、月2万円ほどかかりそうです。" },
+  { key: "reach", q: "新規客がどれくらい増えそうか聞く", a: "近くのお店の例だと、月20人前後の新規のお客様が増えるみたいです。" },
+  { key: "discount", q: "客単価への影響を聞く", a: "初回20%オフのクーポンなので、新規のお客様の客単価は少し下がりそうです。" },
+];
+
 // 「継承」オープンワールド型デモ：本社をハブに、店舗（現場の相談）・志村税理士事務所（決算書・解説）・
 // 母（ヒント）を自由に訪ねながら進める。銀行は定期面談ではなく、区切りの月に向こうから訪ねてくる。
 export default function InheritDemo() {
@@ -56,14 +63,25 @@ export default function InheritDemo() {
   const [staffCount, setStaffCount] = useState(STAFF_COUNT);
   const [extraSales, setExtraSales] = useState(0);
   const [extraLabor, setExtraLabor] = useState(0);
+  const [extraOther, setExtraOther] = useState(0);
   const [seenStaffEvent, setSeenStaffEvent] = useState(false);
   const [staffEventChoice, setStaffEventChoice] = useState(null);
   const [staffAsked, setStaffAsked] = useState([]);
   const [staffQAOpen, setStaffQAOpen] = useState(false);
   const [staffDecisionOpen, setStaffDecisionOpen] = useState(false);
+  const [staffEventMonth, setStaffEventMonth] = useState(null);
+  const [staffEventResultPending, setStaffEventResultPending] = useState(false);
   const [seenBaseline, setSeenBaseline] = useState(false);
   const [baselineAsked, setBaselineAsked] = useState([]);
   const [baselineMonth, setBaselineMonth] = useState(null);
+
+  const [seenPromo, setSeenPromo] = useState(false);
+  const [promoChoice, setPromoChoice] = useState(null);
+  const [promoAsked, setPromoAsked] = useState([]);
+  const [promoQAOpen, setPromoQAOpen] = useState(false);
+  const [promoDecisionOpen, setPromoDecisionOpen] = useState(false);
+  const [promoMonth, setPromoMonth] = useState(null);
+  const [promoResultPending, setPromoResultPending] = useState(false);
 
   const [introExplainChoice, setIntroExplainChoice] = useState(null);
   const [noteOpenKey, setNoteOpenKey] = useState(null);
@@ -87,6 +105,8 @@ export default function InheritDemo() {
   const goStore = () => {
     if (!seenBaseline) setStoreMode("baseline");
     else if (!seenStaffEvent && month > baselineMonth) setStoreMode("staffEvent");
+    else if (staffEventResultPending && month > staffEventMonth) setStoreMode("recap");
+    else if (!seenPromo && month > staffEventMonth) setStoreMode("promo");
     else setStoreMode("recap");
     setScreen("store");
   };
@@ -96,7 +116,7 @@ export default function InheritDemo() {
   const advanceMonth = () => {
     setTransitioning(true);
     setTimeout(() => {
-      const result = calcMonth(loanBalance, draw, extraSales, extraLabor);
+      const result = calcMonth(loanBalance, draw, extraSales, extraLabor, extraOther);
       const newCash = cash + result.cashChange;
       setHistory(h => [...h, { m: month, cash: newCash, ...result }]);
       setLastResult(result);
@@ -132,9 +152,12 @@ export default function InheritDemo() {
     setScreen("title"); setMonth(1); setCash(START_CASH); setLoanBalance(LOAN_START);
     setDraw(DRAW_DEFAULT); setHistory([]); setLastResult(null);
     setStoreMode(null);
-    setStaffCount(STAFF_COUNT); setExtraSales(0); setExtraLabor(0);
+    setStaffCount(STAFF_COUNT); setExtraSales(0); setExtraLabor(0); setExtraOther(0);
     setSeenStaffEvent(false); setStaffEventChoice(null); setStaffAsked([]);
     setStaffQAOpen(false); setStaffDecisionOpen(false);
+    setStaffEventMonth(null); setStaffEventResultPending(false);
+    setSeenPromo(false); setPromoChoice(null); setPromoAsked([]);
+    setPromoQAOpen(false); setPromoDecisionOpen(false); setPromoMonth(null); setPromoResultPending(false);
     setSeenBaseline(false); setBaselineAsked([]); setBaselineMonth(null);
     setIntroExplainChoice(null); setNoteOpenKey(null); setPlViewMode("month");
     setTaxMode("menu"); setTaxTopic(null); setLessonsRead([]); setReadThisMonth(0);
@@ -143,8 +166,17 @@ export default function InheritDemo() {
 
   const chooseStaffEvent = (choice) => {
     setStaffEventChoice(choice);
+    setStaffEventMonth(month);
+    setStaffEventResultPending(true);
     if (choice === "hire") { setStaffCount(STAFF_COUNT + 1); setExtraSales(400000); setExtraLabor(300000); }
     else if (choice === "reckless") { setExtraSales(50000); setExtraLabor(0); }
+  };
+
+  const choosePromo = (choice) => {
+    setPromoChoice(choice);
+    setPromoMonth(month);
+    setPromoResultPending(true);
+    if (choice === "run") { setExtraSales(s => s + 80000); setExtraOther(o => o + 20000); }
   };
 
   const motherMessage = () => {
@@ -285,7 +317,8 @@ export default function InheritDemo() {
 
       <div className="flex flex-col gap-2 mt-3">
         <LocationCard icon="🏠" title={STORE_NAME} subtitle="現場の様子を見る" onClick={goStore}
-          muted={!(!seenBaseline || (!seenStaffEvent && month > baselineMonth))} />
+          muted={!(!seenBaseline || (!seenStaffEvent && month > baselineMonth) ||
+            (staffEventResultPending && month > staffEventMonth) || (!seenPromo && month > staffEventMonth))} />
         <LocationCard icon="📋" title="志村税理士事務所" subtitle="決算書を見る・経営の話を相談する" onClick={goTax}
           muted={lessonsRead.length >= TAX_TOPICS.length || readThisMonth >= READS_PER_MONTH} />
         <LocationCard icon="👩" title="母に相談する" subtitle="困ったときのヒント" onClick={() => setScreen("mother")} />
@@ -348,17 +381,38 @@ export default function InheritDemo() {
         )}
 
         {storeMode === "recap" && (
-          <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200 text-sm text-stone-600">
-            特に変わったことはなく、スタッフたちが元気にお店を切り盛りしています。損益など詳しい数字は志村さんの事務所へ。
-          </div>
+          <>
+            {staffEventResultPending && month > staffEventMonth && (
+              <>
+                <TalkBox name="チーフスタイリスト" avatar={<Staff size={52} mood={staffEventChoice === "reckless" ? "worried" : "normal"} />}>
+                  {staffEventChoice === "hire" && <>スタッフを増やしたことで、売上が<b>+{yen(400000)}</b>、人件費が<b>−{yen(300000)}</b>になりました（差し引き+{yen(100000)}）。</>}
+                  {staffEventChoice === "reckless" && <>やっぱり捌ききれずお客様が離れてしまい、見込んでいたほどの上乗せにはならず、売上は<b>+{yen(50000)}</b>にとどまりました。因数分解してから決めるべきでしたね。</>}
+                  {staffEventChoice === "hold" && <>あの時は見送って正解でしたね。数字がもう少し落ち着いてから、また検討しましょう。</>}
+                </TalkBox>
+                <button onClick={() => setStaffEventResultPending(false)} className="text-[13px] text-amber-700 mt-2 mb-1">わかった →</button>
+              </>
+            )}
+            {promoResultPending && month > promoMonth && (
+              <>
+                <TalkBox name="チーフスタイリスト" avatar={<Staff size={52} mood={promoChoice === "run" ? "normal" : "normal"} />}>
+                  {promoChoice === "run" && <>クーポンで新規のお客様が増えて、売上が<b>+{yen(80000)}</b>ほど伸びました。ただし配布コストで<b>−{yen(20000)}</b>ほど経費もかかっています。</>}
+                  {promoChoice === "hold" && <>今回のクーポンは見送りました。また良さそうな企画があれば教えますね。</>}
+                </TalkBox>
+                <button onClick={() => setPromoResultPending(false)} className="text-[13px] text-amber-700 mt-2 mb-1">わかった →</button>
+              </>
+            )}
+            <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200 text-sm text-stone-600">
+              特に変わったことはなく、スタッフたちが元気にお店を切り盛りしています。損益など詳しい数字は志村さんの事務所へ。
+            </div>
+          </>
         )}
 
         {storeMode === "staffEvent" && (
           <>
-            <TalkBox name="チーフスタイリスト" avatar={<Staff size={52} mood={staffEventChoice === "reckless" ? "worried" : "normal"} />}>
+            <TalkBox name="チーフスタイリスト" avatar={<Staff size={52} />}>
               {staffEventChoice === null && <>お客様からの要望も多いんです。<b>トリートメントメニュー</b>、始めてみませんか？</>}
-              {staffEventChoice === "hire" && <>ありがとうございます！これで無理なく対応できます。</>}
-              {staffEventChoice === "reckless" && <>すみません……お客様を待たせてしまって、何人か次回予約をキャンセルされました。</>}
+              {staffEventChoice === "hire" && <>ありがとうございます！さっそく準備してみますね。</>}
+              {staffEventChoice === "reckless" && <>分かりました、このまま始めてみますね。</>}
               {staffEventChoice === "hold" && <>そうですか。また考えが変わったら言ってください。</>}
             </TalkBox>
 
@@ -420,12 +474,77 @@ export default function InheritDemo() {
 
             {staffEventChoice !== null && (
               <>
-                <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-600">
-                  {staffEventChoice === "hire" && <>スタッフを増やしたことで、来月から売上が<b>+{yen(400000)}</b>、人件費が<b>−{yen(300000)}</b>見込みです（差し引き+{yen(100000)}）。</>}
-                  {staffEventChoice === "reckless" && <>捌ききれずお客様が離れてしまい、見込んでいたほどの上乗せにはならず、来月の売上は<b>+{yen(50000)}</b>にとどまりそうです。因数分解してから決めるべきでしたね。</>}
-                  {staffEventChoice === "hold" && <>今回は現状維持です。数字がもう少し落ち着いてから、また検討しましょう。</>}
+                <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-500">
+                  結果はまた来月、詳しく教えますね。
                 </div>
                 <button onClick={() => setSeenStaffEvent(true)} className="text-[13px] text-amber-700 mt-2">わかった →</button>
+              </>
+            )}
+          </>
+        )}
+
+        {storeMode === "promo" && (
+          <>
+            <TalkBox name="チーフスタイリスト" avatar={<Staff size={52} />}>
+              {promoChoice === null && <>近くの美容室が<b>新規客向けのクーポン</b>を配ってるみたいで、うちもやってみませんか？</>}
+              {promoChoice === "run" && <>ありがとうございます！さっそく配ってみますね。</>}
+              {promoChoice === "hold" && <>そうですか。また考えが変わったら言ってください。</>}
+            </TalkBox>
+
+            {promoChoice === null && !promoQAOpen && !promoDecisionOpen && (
+              <div className="flex flex-col gap-2 mt-2">
+                <Btn onClick={() => setPromoDecisionOpen(true)}>やってみる →</Btn>
+                <button onClick={() => setPromoQAOpen(true)} className="text-[13px] text-amber-700 mt-1">質問する</button>
+              </div>
+            )}
+
+            {promoChoice === null && promoQAOpen && (
+              <>
+                <div className="flex flex-col gap-2 mt-2">
+                  {PROMO_QUESTIONS.map(q => (
+                    promoAsked.includes(q.key)
+                      ? <TalkBox key={q.key} name="チーフスタイリスト" avatar={<Staff size={44} />}>{q.a}</TalkBox>
+                      : <button key={q.key} onClick={() => setPromoAsked(a => [...a, q.key])}
+                          className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">{q.q}</button>
+                  ))}
+                </div>
+                <button onClick={() => setPromoQAOpen(false)} className="text-[13px] text-amber-700 mt-2">← 戻る</button>
+              </>
+            )}
+
+            {promoChoice === null && promoDecisionOpen && (
+              <>
+                {promoAsked.length === PROMO_QUESTIONS.length ? (
+                  <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-600 leading-relaxed">
+                    <div className="text-stone-500 mb-1">聞いた話を数字にしてみると――</div>
+                    新規客20人 × 割引後客単価{yen(AVG_TICKET * 0.8)} = 売上<b>+{yen(20 * AVG_TICKET * 0.8)}</b>ほど見込めそうですが、
+                    配布コストで<b>−{yen(20000)}</b>ほどの経費もかかります。
+                  </div>
+                ) : (
+                  <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-500">
+                    まだ詳しく聞いていないので、判断材料が少ない状態です。このまま決めることもできますが、先に「質問する」で状況を聞いておくと安心です。
+                  </div>
+                )}
+                <div className="flex flex-col gap-2 mt-2">
+                  <button onClick={() => choosePromo("run")}
+                    className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">
+                    クーポンを配布してみる
+                  </button>
+                  <button onClick={() => choosePromo("hold")}
+                    className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">
+                    今回は見送る
+                  </button>
+                </div>
+                <button onClick={() => setPromoDecisionOpen(false)} className="text-[13px] text-amber-700 mt-2">← 戻る</button>
+              </>
+            )}
+
+            {promoChoice !== null && (
+              <>
+                <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-500">
+                  結果はまた来月、詳しく教えますね。
+                </div>
+                <button onClick={() => setSeenPromo(true)} className="text-[13px] text-amber-700 mt-2">わかった →</button>
               </>
             )}
           </>
