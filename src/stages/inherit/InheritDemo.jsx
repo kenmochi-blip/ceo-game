@@ -6,6 +6,9 @@ import {
   STAFF_COUNT, SERVICE_HOURS_BASE, SERVICE_HOURS_TREATMENT, CURRENT_CUSTOMERS, AVG_TICKET,
   INTEREST_RATIO, capacity, blendedServiceHours,
   HOURS_PER_DAY, DAYS_PER_MONTH, FIXED_ASSETS, CAPITAL_STOCK, RETAINED_EARNINGS_INIT,
+  STAFF_HIRE_EXTRA_SALES, STAFF_HIRE_EXTRA_LABOR, STAFF_HIRE_EXTRA_CUSTOMERS,
+  STAFF_RECKLESS_EXTRA_SALES, STAFF_RECKLESS_EXTRA_CUSTOMERS,
+  PROMO_EXTRA_SALES, PROMO_EXTRA_OTHER, PROMO_EXTRA_CUSTOMERS, PROMO_DISCOUNT_RATE,
 } from "./data";
 import { TAX_TOPICS } from "./taxTopics";
 import BSDiagram from "./BSDiagram";
@@ -121,8 +124,11 @@ export default function InheritDemo() {
     setTimeout(() => {
       const result = calcMonth(loanBalance, draw, extraSales, extraLabor, extraOther);
       const newCash = cash + result.cashChange;
-      setHistory(h => [...h, { m: month, cash: newCash, ...result }]);
-      setLastResult(result);
+      // 客数はその時点のextraCustomersでスナップショットする（後で施策を追加してもこの月の実績は変わらない）
+      const customers = CURRENT_CUSTOMERS + extraCustomers;
+      const resultWithCustomers = { ...result, customers };
+      setHistory(h => [...h, { m: month, cash: newCash, ...resultWithCustomers }]);
+      setLastResult(resultWithCustomers);
       setCash(newCash);
       setLoanBalance(result.newLoanBalance);
       setReadThisMonth(0);
@@ -173,8 +179,15 @@ export default function InheritDemo() {
     if (choice === "hold") return;
     setStaffEventMonth(month);
     setStaffEventResultPending(true);
-    if (choice === "hire") { setStaffCount(STAFF_COUNT + 1); setExtraSales(s => s + 400000); setExtraLabor(l => l + 300000); setExtraCustomers(c => c + 80); }
-    else if (choice === "reckless") { setExtraSales(s => s + 50000); setExtraCustomers(c => c + 10); }
+    if (choice === "hire") {
+      setStaffCount(STAFF_COUNT + 1);
+      setExtraSales(s => s + STAFF_HIRE_EXTRA_SALES);
+      setExtraLabor(l => l + STAFF_HIRE_EXTRA_LABOR);
+      setExtraCustomers(c => c + STAFF_HIRE_EXTRA_CUSTOMERS);
+    } else if (choice === "reckless") {
+      setExtraSales(s => s + STAFF_RECKLESS_EXTRA_SALES);
+      setExtraCustomers(c => c + STAFF_RECKLESS_EXTRA_CUSTOMERS);
+    }
   };
 
   const choosePromo = (choice) => {
@@ -182,7 +195,11 @@ export default function InheritDemo() {
     if (choice === "hold") return;
     setPromoMonth(month);
     setPromoResultPending(true);
-    if (choice === "run") { setExtraSales(s => s + 80000); setExtraOther(o => o + 20000); setExtraCustomers(c => c + 20); }
+    if (choice === "run") {
+      setExtraSales(s => s + PROMO_EXTRA_SALES);
+      setExtraOther(o => o + PROMO_EXTRA_OTHER);
+      setExtraCustomers(c => c + PROMO_EXTRA_CUSTOMERS);
+    }
   };
 
   const motherMessage = () => {
@@ -350,6 +367,11 @@ export default function InheritDemo() {
     const baseCapacity = capacity(staffCount, SERVICE_HOURS_BASE);
     const treatmentCapacity = capacity(staffCount, avgServiceHours);
     const treatmentCapacityWithHire = capacity(staffCount + 1, avgServiceHours);
+    // トリートメント開始済み（増員/強行いずれか）かどうかで、今の平均接客時間が変わる
+    const treatmentActive = staffEventChoice === "hire" || staffEventChoice === "reckless";
+    const currentAvgServiceHours = treatmentActive ? avgServiceHours : SERVICE_HOURS_BASE;
+    const currentCapacity = capacity(staffCount, currentAvgServiceHours);
+    const utilization = lastResult ? Math.round((lastResult.customers / currentCapacity) * 100) : null;
     return (
       <Shell cash={cash} cashLabel={CASH_LABEL} transitioning={transitioning}>
         <div className="flex items-center justify-between pt-1">
@@ -357,11 +379,23 @@ export default function InheritDemo() {
           <span className="text-sm text-stone-500">{month}ヶ月目</span>
         </div>
 
+        {storeMode !== "baseline" && (
+          <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200">
+            <div className="text-xs text-stone-500 mb-1">お店の今の状態</div>
+            <Row label="👥 スタイリスト数" val={`${staffCount}人`} />
+            <Row label="⏱ 一人あたり接客時間" val={`${currentAvgServiceHours.toFixed(2)}時間`} />
+            <Row label="📐 対応可能人数（上限）" val={`${currentCapacity}人/月`} />
+            {lastResult && (
+              <Row label="📊 稼働率（先月客数÷上限）" val={`${utilization}%`} red={utilization >= 100} />
+            )}
+          </div>
+        )}
+
         {lastResult && storeMode !== "baseline" && (
           <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200">
             <div className="text-xs text-stone-500 mb-1">先月（{month - 1}ヶ月目）の実績</div>
-            <Row label="客数" val={`${CURRENT_CUSTOMERS + extraCustomers}人`} />
-            <Row label="客単価" val={yen(Math.round(lastResult.sales / (CURRENT_CUSTOMERS + extraCustomers)))} />
+            <Row label="客数" val={`${lastResult.customers}人`} />
+            <Row label="客単価" val={yen(Math.round(lastResult.sales / lastResult.customers))} />
           </div>
         )}
 
@@ -394,8 +428,8 @@ export default function InheritDemo() {
             {staffEventResultPending && month > staffEventMonth && (
               <>
                 <TalkBox name="チーフスタイリスト" avatar={<Staff size={52} mood={staffEventChoice === "reckless" ? "worried" : "normal"} />}>
-                  {staffEventChoice === "hire" && <>スタッフを増やしたことで、売上が<b>+{yen(400000)}</b>、人件費が<b>−{yen(300000)}</b>になりました（差し引き+{yen(100000)}）。</>}
-                  {staffEventChoice === "reckless" && <>やっぱり捌ききれずお客様が離れてしまい、見込んでいたほどの上乗せにはならず、売上は<b>+{yen(50000)}</b>にとどまりました。因数分解してから決めるべきでしたね。</>}
+                  {staffEventChoice === "hire" && <>スタッフを増やしたことで、売上が<b>+{yen(STAFF_HIRE_EXTRA_SALES)}</b>、人件費が<b>−{yen(STAFF_HIRE_EXTRA_LABOR)}</b>になりました（差し引き+{yen(STAFF_HIRE_EXTRA_SALES - STAFF_HIRE_EXTRA_LABOR)}）。</>}
+                  {staffEventChoice === "reckless" && <>やっぱり捌ききれずお客様が離れてしまい、見込んでいたほどの上乗せにはならず、売上は<b>+{yen(STAFF_RECKLESS_EXTRA_SALES)}</b>にとどまりました。因数分解してから決めるべきでしたね。</>}
                 </TalkBox>
                 <button onClick={() => setStaffEventResultPending(false)} className="text-[13px] text-amber-700 mt-2 mb-1">わかった →</button>
               </>
@@ -403,7 +437,7 @@ export default function InheritDemo() {
             {promoResultPending && month > promoMonth && (
               <>
                 <TalkBox name="チーフスタイリスト" avatar={<Staff size={52} />}>
-                  {promoChoice === "run" && <>クーポンで新規のお客様が増えて、売上が<b>+{yen(80000)}</b>ほど伸びました。ただし配布コストで<b>−{yen(20000)}</b>ほど経費もかかっています。</>}
+                  {promoChoice === "run" && <>クーポンで新規のお客様が増えて、売上が<b>+{yen(PROMO_EXTRA_SALES)}</b>ほど伸びました。ただし配布コストで<b>−{yen(PROMO_EXTRA_OTHER)}</b>ほど経費もかかっています。</>}
                 </TalkBox>
                 <button onClick={() => setPromoResultPending(false)} className="text-[13px] text-amber-700 mt-2 mb-1">わかった →</button>
               </>
@@ -526,8 +560,8 @@ export default function InheritDemo() {
                 {promoAsked.length === PROMO_QUESTIONS.length ? (
                   <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-600 leading-relaxed">
                     <div className="text-stone-500 mb-1">聞いた話を数字にしてみると――</div>
-                    新規客20人 × 割引後客単価{yen(AVG_TICKET * 0.8)} = 売上<b>+{yen(20 * AVG_TICKET * 0.8)}</b>ほど見込めそうですが、
-                    配布コストで<b>−{yen(20000)}</b>ほどの経費もかかります。
+                    新規客{PROMO_EXTRA_CUSTOMERS}人 × 割引後客単価{yen(AVG_TICKET * (1 - PROMO_DISCOUNT_RATE))} = 売上<b>+{yen(PROMO_EXTRA_SALES)}</b>ほど見込めそうですが、
+                    配布コストで<b>−{yen(PROMO_EXTRA_OTHER)}</b>ほどの経費もかかります。
                   </div>
                 ) : (
                   <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-500">

@@ -58,6 +58,48 @@ export const capacity = (staffCount, serviceHours) =>
 export const blendedServiceHours = (interestRatio) =>
   SERVICE_HOURS_BASE * (1 - interestRatio) + SERVICE_HOURS_TREATMENT * interestRatio;
 
+// ── 店舗施策の効果値 ──
+// 売上＝客数×客単価。客数は「対応可能人数」の上限が、店の広さ・設備・従業員数・一人当たり接客時間で決まる
+// （capacity()参照）。施策はこの客数・客単価・コストのどこに効くかで設計する。
+// この定数群と下のSTORE_FACTOR_MATRIXが、施策と数字の対応を一箇所にまとめた設計上の一覧表（プレイヤーには非表示）。
+export const STAFF_HIRE_EXTRA_SALES = 400000;      // 増員してトリートメント開始：新規需要を取りこぼさず売上に反映
+export const STAFF_HIRE_EXTRA_LABOR = 300000;      // 増員分の人件費
+export const STAFF_HIRE_EXTRA_CUSTOMERS = 80;      // 対応可能人数が需要を上回る（capacity(3人,1.35h)=444人 > 300人）ため、新規需要を丸ごと取り込める
+export const STAFF_RECKLESS_EXTRA_SALES = 50000;   // 増員せずトリートメント開始：需要はあるが捌ききれない
+export const STAFF_RECKLESS_EXTRA_CUSTOMERS = 10;  // 対応可能人数が需要を下回る（capacity(2人,1.35h)=296人 < 300人）ため、新規客の大半を取りこぼす
+export const PROMO_EXTRA_SALES = 80000;            // クーポン施策：新規客20人×割引後客単価(AVG_TICKET×0.8)
+export const PROMO_EXTRA_OTHER = 20000;            // クーポン施策：配布コスト（その他固定費に計上）
+export const PROMO_EXTRA_CUSTOMERS = 20;           // クーポン施策：新規客数
+export const PROMO_DISCOUNT_RATE = 0.2;            // クーポン施策：新規客への割引率（客単価が下がる）
+
+// 施策 × 影響要素のマトリクス（開発用の設計メモ。ノート等プレイヤー向けUIには出さない）
+export const STORE_FACTOR_MATRIX = [
+  {
+    event: "staffEvent: 増員してトリートメント開始",
+    customers: `+${STAFF_HIRE_EXTRA_CUSTOMERS}人（対応可能人数が需要を上回るため、新規需要を丸ごと取り込める）`,
+    unitPrice: "変化なし（既存客単価のまま）",
+    laborCost: `+${STAFF_HIRE_EXTRA_LABOR}円/月`,
+    otherFixedCost: "変化なし",
+    driver: "従業員数（capacity式の分子）",
+  },
+  {
+    event: "staffEvent: 増員せずトリートメント開始",
+    customers: `+${STAFF_RECKLESS_EXTRA_CUSTOMERS}人（対応可能人数が需要を下回り、新規客の大半を取りこぼす）`,
+    unitPrice: "変化なし",
+    laborCost: "変化なし",
+    otherFixedCost: "変化なし",
+    driver: "一人あたり接客時間（capacity式の分母）に対して需要が上限超過",
+  },
+  {
+    event: "promo: 新規客クーポン配布",
+    customers: `+${PROMO_EXTRA_CUSTOMERS}人（新規客）`,
+    unitPrice: `新規客が${PROMO_DISCOUNT_RATE * 100}%オフのため、全体の客単価が下がる`,
+    laborCost: "変化なし",
+    otherFixedCost: `+${PROMO_EXTRA_OTHER}円/月（配布コスト）`,
+    driver: "客単価（値引き）と店の広さ・設備とは無関係に新規客を呼び込む施策",
+  },
+];
+
 export const yen = n => (n < 0 ? "▲" : "") + "¥" + Math.round(Math.abs(n)).toLocaleString();
 
 // 万円単位の表示（PL・BS用）
