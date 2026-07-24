@@ -32,7 +32,7 @@ const BASELINE_QUESTIONS = [
 
 // メニュー提案の追加ヒアリング（③の因数分解を対話の中で引き出すため、数字はここでだけ明かす）
 const STAFF_QUESTIONS = [
-  { key: "cost", q: "追加コストを聞く", a: "スタッフを1人増やすなら、人件費は月15万円ほど増えそうです。" },
+  { key: "cost", q: "追加コストを聞く", a: "スタッフを1人増やすなら、社会保険等も込みで人件費は月30万円ほど増えそうです。" },
   { key: "timeIncrease", q: "接客時間の伸びを聞く", a: `1人あたりの施術時間が、通常${SERVICE_HOURS_BASE}時間からトリートメント込みで${SERVICE_HOURS_TREATMENT}時間に伸びるみたいです。` },
   { key: "interestRatio", q: "興味がありそうな客の比率を聞く", a: `肌感ですが、だいたい${Math.round(INTEREST_RATIO * 100)}%くらいのお客様が興味を持ちそうです。` },
 ];
@@ -121,7 +121,7 @@ export default function InheritDemo() {
 
   const chooseStaffEvent = (choice) => {
     setStaffEventChoice(choice);
-    if (choice === "hire") { setStaffCount(STAFF_COUNT + 1); setExtraSales(300000); setExtraLabor(150000); }
+    if (choice === "hire") { setStaffCount(STAFF_COUNT + 1); setExtraSales(400000); setExtraLabor(300000); }
     else if (choice === "reckless") { setExtraSales(50000); setExtraLabor(0); }
   };
 
@@ -215,11 +215,13 @@ export default function InheritDemo() {
       {introExplainChoice === null && (
         <>
           <TalkBox name="志村（顧問税理士）" avatar={<Shimura size={52} />}>
-            決算書の見方を、先に説明しておきましょうか？
+            前期（先代最後の1年間）の決算書を見ながら、決算書の見方を先に説明しておきましょうか？
           </TalkBox>
           <div className="flex gap-2 mt-2">
-            <button onClick={() => { setIntroExplainChoice("yes"); setLessonsRead(r => r.includes("pl") ? r : [...r, "pl"]); }}
-              className="flex-1 bg-white border border-stone-200 rounded-xl py-3 text-sm hover:border-amber-400">お願いします</button>
+            <button onClick={() => {
+              setIntroExplainChoice("yes");
+              setLessonsRead(r => [...new Set([...r, "kessansho", "pl", "bs"])]);
+            }} className="flex-1 bg-white border border-stone-200 rounded-xl py-3 text-sm hover:border-amber-400">お願いします</button>
             <button onClick={() => setIntroExplainChoice("no")}
               className="flex-1 bg-white border border-stone-200 rounded-xl py-3 text-sm hover:border-amber-400">また今度で</button>
           </div>
@@ -227,9 +229,17 @@ export default function InheritDemo() {
       )}
 
       {introExplainChoice === "yes" && (
-        <TalkBox name="志村（顧問税理士）" avatar={<Shimura size={52} />}>
-          {TAX_TOPICS.find(t => t.key === "pl").answer}
-        </TalkBox>
+        <>
+          <TalkBox name="志村（顧問税理士）" avatar={<Shimura size={52} />}>
+            {TAX_TOPICS.find(t => t.key === "kessansho").answer}
+          </TalkBox>
+          <TalkBox name="志村（顧問税理士）" avatar={<Shimura size={52} />}>
+            {TAX_TOPICS.find(t => t.key === "pl").answer()}
+          </TalkBox>
+          <TalkBox name="志村（顧問税理士）" avatar={<Shimura size={52} />}>
+            {TAX_TOPICS.find(t => t.key === "bs").answer()}
+          </TalkBox>
+        </>
       )}
 
       {introExplainChoice !== null && (
@@ -351,7 +361,7 @@ export default function InheritDemo() {
                 <div className="flex flex-col gap-2 mt-2">
                   <button onClick={() => chooseStaffEvent("hire")}
                     className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">
-                    スタッフを1人増やして始める <span className="text-stone-400">（人件費 +¥150,000/月、上限は月{treatmentCapacityWithHire}人に）</span>
+                    スタッフを1人増やして始める <span className="text-stone-400">（人件費 +¥300,000/月、上限は月{treatmentCapacityWithHire}人に）</span>
                   </button>
                   <button onClick={() => chooseStaffEvent("reckless")}
                     className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">
@@ -368,7 +378,7 @@ export default function InheritDemo() {
             {staffEventChoice !== null && (
               <>
                 <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-600">
-                  {staffEventChoice === "hire" && <>スタッフを増やしたことで、来月から売上が<b>+{yen(300000)}</b>、人件費が<b>−{yen(150000)}</b>見込みです（差し引き+{yen(150000)}）。</>}
+                  {staffEventChoice === "hire" && <>スタッフを増やしたことで、来月から売上が<b>+{yen(400000)}</b>、人件費が<b>−{yen(300000)}</b>見込みです（差し引き+{yen(100000)}）。</>}
                   {staffEventChoice === "reckless" && <>捌ききれずお客様が離れてしまい、見込んでいたほどの上乗せにはならず、来月の売上は<b>+{yen(50000)}</b>にとどまりそうです。因数分解してから決めるべきでしたね。</>}
                   {staffEventChoice === "hold" && <>今回は現状維持です。数字がもう少し落ち着いてから、また検討しましょう。</>}
                 </div>
@@ -603,7 +613,7 @@ export default function InheritDemo() {
           <>
             <TalkBox name="志村（顧問税理士）" avatar={<Shimura size={52} />}>
               {typeof selected.answer === "function"
-                ? selected.answer({ totalAssets, liabilities: loanBalance, equity: totalEquity, ratio: equityRatio })
+                ? selected.answer({ totalAssets, liabilities: loanBalance, equity: totalEquity, ratio: equityRatio, lastResult })
                 : selected.answer}
             </TalkBox>
             <button onClick={() => setTaxTopic(null)} className="text-[13px] text-amber-700 mt-2">他の質問をする</button>
@@ -681,7 +691,7 @@ export default function InheritDemo() {
                   {noteOpenKey === t.key && (
                     <div className="text-sm text-stone-600 leading-relaxed pb-2 pl-1">
                       {typeof t.answer === "function"
-                        ? t.answer({ totalAssets, liabilities: loanBalance, equity: totalEquity, ratio: equityRatio })
+                        ? t.answer({ totalAssets, liabilities: loanBalance, equity: totalEquity, ratio: equityRatio, lastResult })
                         : t.answer}
                     </div>
                   )}

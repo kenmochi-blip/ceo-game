@@ -8,9 +8,9 @@ export const ANNUAL_RATE = 0.03;        // 借入金利（年率）
 export const PRINCIPAL_PAYMENT = 200000; // 毎月の元本返済額（定額）
 
 export const SALES = 1500000;           // 本店の月次売上（デモでは固定）
-export const COGS_RATE = 0.32;          // 原価率
+export const COGS_RATE = 0.22;          // 原価率（シャンプー・カラー剤等の消耗材料費。美容室は変動費が小さいため低め）
 export const RENT = 200000;             // 家賃
-export const LABOR = 450000;            // 人件費（スタッフ）
+export const LABOR = 600000;            // 人件費（スタイリスト2人分、社会保険等込み）
 export const OTHER_FIXED = 100000;      // その他固定費（水道光熱費等）
 export const DEPRECIATION_PER_MONTH = 50000; // 減価償却費（現金を伴わない費用）
 
@@ -27,6 +27,15 @@ export const CAPITAL_STOCK = 300000;      // 資本金
 export const RETAINED_EARNINGS_INIT = 500000; // 引き継ぎ時点の利益剰余金（先代の代からの積み上げ分）
 // 開始時点で 資産(現金+固定資産) = 負債(借入)+純資産(資本金+利益剰余金) が釣り合うように設定
 // 1,800,000 + 5,000,000 = 6,000,000 + (300,000 + 500,000) = 6,800,000
+
+// ── 前期（先代最後の1年間）の決算書 ──
+// 引き継ぎ直後、志村さんの事務所でPL/BSの読み方を教わる際の実例として使う。
+// 期末時点のBSは START_CASH / LOAN_START / FIXED_ASSETS / CAPITAL_STOCK / RETAINED_EARNINGS_INIT と同じ（＝今の期首）。
+export const PRIOR_YEAR_PL = {
+  sales: 18000000, cogs: 3960000, gross: 14040000,
+  rent: 2400000, labor: 7200000, executiveComp: 3600000, otherFixed: 1200000, depreciation: 600000,
+  operating: -960000, interest: 200000, ordinary: -1160000, netProfit: -1160000,
+};
 
 // ── 客数の因数分解（③の軽い体験版：スタッフ新メニュー相談イベント用）──
 export const STAFF_COUNT = 2;             // 現在のスタイリスト人数
