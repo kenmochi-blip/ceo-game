@@ -48,7 +48,7 @@ const PROMO_QUESTIONS = [
   { key: "discount", q: "客単価への影響を聞く", a: "初回20%オフのクーポンなので、新規のお客様の客単価は少し下がりそうです。" },
 ];
 
-// 「継承」オープンワールド型デモ：本社をハブに、店舗（現場の相談）・志村税理士事務所（決算書・解説）・
+// 「継承」オープンワールド型デモ：本社をハブに、店舗（現場の相談）・志村公認会計士・税理士事務所（決算書・解説）・
 // 母（ヒント）を自由に訪ねながら進める。銀行は定期面談ではなく、区切りの月に向こうから訪ねてくる。
 export default function InheritDemo() {
   const [screen, setScreen] = useState("title");
@@ -218,7 +218,7 @@ export default function InheritDemo() {
       </div>
       <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200 text-[14px] text-stone-600 leading-relaxed">
         父が急逝し、{COMPANY_NAME}（{STORE_NAME}ほか）を継ぐことになった。
-        葬儀もそこそこに、顧問税理士の志村さんから決算書を渡されたが、正直、何が書いてあるのかさっぱり分からない――。
+        葬儀もそこそこに、顧問の公認会計士・税理士、志村さんから決算書を渡されたが、正直、何が書いてあるのかさっぱり分からない――。
       </div>
       <Btn onClick={() => setScreen("select")}>はじめる →</Btn>
     </Shell>
@@ -277,20 +277,20 @@ export default function InheritDemo() {
     </Shell>
   );
 
-  // ===== 志村税理士事務所（初回・スクリプトイベント） =====
+  // ===== 志村公認会計士・税理士事務所（初回・スクリプトイベント） =====
   if (screen === "taxFirstVisit") return (
     <Shell transitioning={transitioning}>
       <div className="text-center pt-4"><Shimura size={80} /></div>
-      <TalkBox name="志村（顧問税理士）" avatar={<Shimura size={52} />}>
+      <TalkBox name="志村（公認会計士・税理士）" avatar={<Shimura size={52} />}>
         ようこそ。まずは簡単に、会社の状況をお話ししますね。
       </TalkBox>
-      <TalkBox name="志村（顧問税理士）" avatar={<Shimura size={52} />}>
+      <TalkBox name="志村（公認会計士・税理士）" avatar={<Shimura size={52} />}>
         売上はまずまずですが、銀行への返済も控えています。油断せず、数字を見ながら経営していきましょう。
       </TalkBox>
 
       {introExplainChoice === null && (
         <>
-          <TalkBox name="志村（顧問税理士）" avatar={<Shimura size={52} />}>
+          <TalkBox name="志村（公認会計士・税理士）" avatar={<Shimura size={52} />}>
             前期（先代最後の1年間）の決算書を見ながら、決算書の見方を先に説明しておきましょうか？
           </TalkBox>
           <div className="flex gap-2 mt-2">
@@ -306,13 +306,13 @@ export default function InheritDemo() {
 
       {introExplainChoice === "yes" && (
         <>
-          <TalkBox name="志村（顧問税理士）" avatar={<Shimura size={52} />}>
+          <TalkBox name="志村（公認会計士・税理士）" avatar={<Shimura size={52} />}>
             {TAX_TOPICS.find(t => t.key === "kessansho").answer}
           </TalkBox>
-          <TalkBox name="志村（顧問税理士）" avatar={<Shimura size={52} />}>
+          <TalkBox name="志村（公認会計士・税理士）" avatar={<Shimura size={52} />}>
             {TAX_TOPICS.find(t => t.key === "pl").answer()}
           </TalkBox>
-          <TalkBox name="志村（顧問税理士）" avatar={<Shimura size={52} />}>
+          <TalkBox name="志村（公認会計士・税理士）" avatar={<Shimura size={52} />}>
             {TAX_TOPICS.find(t => t.key === "bs").answer()}
           </TalkBox>
         </>
@@ -320,7 +320,7 @@ export default function InheritDemo() {
 
       {introExplainChoice !== null && (
         <>
-          <TalkBox name="志村（顧問税理士）" avatar={<Shimura size={52} />}>
+          <TalkBox name="志村（公認会計士・税理士）" avatar={<Shimura size={52} />}>
             そうそう、近いうちに銀行の剱持さんもご挨拶にいらっしゃると思いますよ。
           </TalkBox>
           <Btn onClick={() => setScreen("bankFirstVisit")}>事務所を出る →</Btn>
@@ -345,7 +345,7 @@ export default function InheritDemo() {
             (promoResultPending && month > promoMonth) ||
             (!seenStaffEvent && month > baselineMonth) ||
             (!seenPromo && seenStaffEvent && month > staffEventMonth))} />
-        <LocationCard icon="📋" title="志村税理士事務所" subtitle="決算書を見る・経営の話を相談する" onClick={goTax}
+        <LocationCard icon="📋" title="志村公認会計士・税理士事務所" subtitle="決算書を見る・経営の話を相談する" onClick={goTax}
           muted={lessonsRead.length >= TAX_TOPICS.length || readThisMonth >= READS_PER_MONTH} />
         <LocationCard icon="👩" title="母に相談する" subtitle="困ったときのヒント" onClick={() => setScreen("mother")} />
         <LocationCard icon="📔" title="ノートを見返す" subtitle="これまで分かったことを振り返る" onClick={() => { setNoteOpenKey(null); setScreen("notebook"); }} />
@@ -495,6 +495,7 @@ export default function InheritDemo() {
                     まだ詳しく聞いていないので、判断材料が少ない状態です。このまま決めることもできますが、先に「質問する」で状況を聞いておくと安心です。
                   </div>
                 )}
+                <div className="text-[12px] text-stone-400 mt-1">迷ったら志村先生（公認会計士・税理士）に相談してみるのもいいかもしれません。</div>
                 <div className="flex flex-col gap-2 mt-2">
                   <button onClick={() => chooseStaffEvent("hire")}
                     className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">
@@ -568,6 +569,7 @@ export default function InheritDemo() {
                     まだ詳しく聞いていないので、判断材料が少ない状態です。このまま決めることもできますが、先に「質問する」で状況を聞いておくと安心です。
                   </div>
                 )}
+                <div className="text-[12px] text-stone-400 mt-1">迷ったら志村先生（公認会計士・税理士）に相談してみるのもいいかもしれません。</div>
                 <div className="flex flex-col gap-2 mt-2">
                   <button onClick={() => choosePromo("run")}
                     className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">
@@ -600,18 +602,18 @@ export default function InheritDemo() {
     );
   }
 
-  // ===== 志村税理士事務所 =====
+  // ===== 志村公認会計士・税理士事務所 =====
   if (screen === "tax") {
     const prev = history.length >= 2 ? history[history.length - 2] : null;
 
     if (taxMode === "menu") return (
       <Shell cash={cash} cashLabel={CASH_LABEL} transitioning={transitioning}>
         <div className="flex items-center justify-between pt-1">
-          <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-md">志村税理士事務所</span>
+          <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-md">志村公認会計士・税理士事務所</span>
           <span className="text-sm text-stone-500">{month}ヶ月目</span>
         </div>
         <div className="text-center pt-3"><Shimura size={72} /></div>
-        <TalkBox name="志村（顧問税理士）" avatar={<Shimura size={52} />}>
+        <TalkBox name="志村（公認会計士・税理士）" avatar={<Shimura size={52} />}>
           ようこそ。決算書を見ますか？　それとも、何か相談したいことがありますか？
         </TalkBox>
         <div className="flex flex-col gap-2 mt-3">
@@ -755,7 +757,7 @@ export default function InheritDemo() {
 
         {!selected && (
           <>
-            <TalkBox name="志村（顧問税理士）" avatar={<Shimura size={52} />}>何でも聞いてください。</TalkBox>
+            <TalkBox name="志村（公認会計士・税理士）" avatar={<Shimura size={52} />}>何でも聞いてください。</TalkBox>
             <div className="flex flex-col gap-2 mt-3">
               {visibleTopics.map((t, i) => {
                 const isRead = readSet.has(t.key);
@@ -784,7 +786,7 @@ export default function InheritDemo() {
 
         {selected && (
           <>
-            <TalkBox name="志村（顧問税理士）" avatar={<Shimura size={52} />}>
+            <TalkBox name="志村（公認会計士・税理士）" avatar={<Shimura size={52} />}>
               {typeof selected.answer === "function"
                 ? selected.answer({ totalAssets, liabilities: loanBalance, equity: totalEquity, ratio: equityRatio, lastResult })
                 : selected.answer}

@@ -10,7 +10,7 @@ const PRIOR_TOTAL_ASSETS = START_CASH + FIXED_ASSETS;
 const PRIOR_TOTAL_EQUITY = CAPITAL_STOCK + RETAINED_EARNINGS_INIT;
 const PRIOR_RATIO = (PRIOR_TOTAL_EQUITY / PRIOR_TOTAL_ASSETS) * 100;
 
-// 志村税理士事務所の解説メニュー。順番にアンロックされる（1つ読むと次が選べるようになる）。
+// 志村公認会計士・税理士事務所の解説メニュー。順番にアンロックされる（1つ読むと次が選べるようになる）。
 // InheritDemo側で「1ヶ月に読めるのは3つまで」の制限をかける。
 // answerは通常はJSX固定文だが、今の会社の数字を使いたいものは
 // (ctx) => JSX という関数にしている（ctx = {totalAssets, liabilities, equity, ratio, lastResult}）。
@@ -128,6 +128,15 @@ export const TAX_TOPICS = [
     label: "役員報酬と利益の関係について教えてください",
     answer: <>会社になると、社長の取り分は「役員報酬」という<b>会社の経費</b>になります。個人事業主の頃の生活費と違って、
       決算書の利益にそのまま影響するんです。役員報酬を高くとりすぎると、会社としては赤字になってしまうこともあります。</>,
+  },
+  {
+    key: "new_service_check",
+    label: "新しいサービスを始めるかどうか、判断のコツはありますか？",
+    answer: <>お店から新しい施策の話が来たら、効果に飛びつく前に3つ確認するといいですよ。
+      ①<b>コスト</b>（追加でかかる人件費や経費）、②<b>効果</b>（客数や客単価にどれくらい効くか）、
+      ③<b>今の体制で対応しきれるか</b>（対応可能人数の上限を超えないか）。
+      効果ばかりに目が行って③を見落とすと、お客様を待たせてしまったり、コストだけがかかって見込んだ効果が出なかったりします。
+      お店から提案があったら、まずはこの3つを聞き出してから決めましょう。</>,
   },
   {
     key: "principal_interest",
