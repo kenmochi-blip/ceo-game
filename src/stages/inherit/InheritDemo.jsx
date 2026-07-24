@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   COMPANY_NAME, STORE_NAME, START_CASH, LOAN_START, ANNUAL_RATE,
   PRINCIPAL_PAYMENT, DRAW_DEFAULT, DRAW_MIN, DRAW_MAX, DRAW_STEP,
-  DEMO_MONTHS, yen, manYen, manYenRow, calcMonth,
+  DEMO_MONTHS, yen, manYen, calcMonth,
   STAFF_COUNT, SERVICE_HOURS_BASE, SERVICE_HOURS_TREATMENT, CURRENT_CUSTOMERS, AVG_TICKET,
   INTEREST_RATIO, capacity, blendedServiceHours,
   HOURS_PER_DAY, DAYS_PER_MONTH, FIXED_ASSETS, CAPITAL_STOCK, RETAINED_EARNINGS_INIT,
@@ -10,6 +10,7 @@ import {
 import { TAX_TOPICS } from "./taxTopics";
 import BSDiagram from "./BSDiagram";
 import PLDiagram from "./PLDiagram";
+import MoneyRow from "./MoneyRow";
 import { Player, Mother, Banker, Staff } from "./characters";
 import Shimura from "../../components/characters/Shimura";
 import TalkBox from "./TalkBox";
@@ -50,8 +51,6 @@ export default function InheritDemo() {
   const [draw, setDraw] = useState(DRAW_DEFAULT);
   const [history, setHistory] = useState([]);
   const [lastResult, setLastResult] = useState(null);
-  const [seenCashLesson, setSeenCashLesson] = useState(false);
-  const [prediction, setPrediction] = useState(null);
 
   const [storeMode, setStoreMode] = useState(null);
   const [staffCount, setStaffCount] = useState(STAFF_COUNT);
@@ -111,7 +110,7 @@ export default function InheritDemo() {
   const restart = () => {
     setScreen("title"); setMonth(1); setCash(START_CASH); setLoanBalance(LOAN_START);
     setDraw(DRAW_DEFAULT); setHistory([]); setLastResult(null);
-    setSeenCashLesson(false); setPrediction(null); setStoreMode(null);
+    setStoreMode(null);
     setStaffCount(STAFF_COUNT); setExtraSales(0); setExtraLabor(0);
     setSeenStaffEvent(false); setStaffEventChoice(null); setStaffAsked([]);
     setSeenBaseline(false); setBaselineAsked([]); setBaselineMonth(null);
@@ -128,7 +127,6 @@ export default function InheritDemo() {
   const motherMessage = () => {
     if (history.length === 0) return <>まずは<b>{STORE_NAME}</b>に一度顔を出してみたら？志村さんの事務所にも決算書があるはずよ。</>;
     if (!seenStaffEvent) return <>お店のスタッフさん、何か相談したいことがあるみたいだったけど。</>;
-    if (!seenCashLesson) return <>志村さんの事務所で、決算書をちゃんと見てみた？</>;
     return <>数字をちゃんと見ていれば、大きく間違えることはないから。その調子よ。分からないことがあれば志村さんの事務所にも顔を出してみて。</>;
   };
 
@@ -322,8 +320,18 @@ export default function InheritDemo() {
         )}
 
         {storeMode === "recap" && (
-          <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200 text-sm text-stone-600">
-            特に変わったことはなく、スタッフたちが元気にお店を切り盛りしています。数字が気になったら志村さんの事務所へ。
+          <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200">
+            {lastResult && (
+              <>
+                <div className="text-xs text-stone-500 mb-1">先月（{month - 1}ヶ月目）の実績</div>
+                <Row label="客数" val={`${CURRENT_CUSTOMERS}人`} />
+                <Row label="客単価" val={yen(Math.round(lastResult.sales / CURRENT_CUSTOMERS))} />
+                <div className="border-t border-stone-100 my-2" />
+              </>
+            )}
+            <div className="text-sm text-stone-600">
+              特に変わったことはなく、スタッフたちが元気にお店を切り盛りしています。損益など詳しい数字は志村さんの事務所へ。
+            </div>
           </div>
         )}
 
@@ -416,17 +424,14 @@ export default function InheritDemo() {
     );
 
     if (taxMode === "statements") {
-      const showQuiz = history.length > 0 && !seenCashLesson && prediction === null;
-      const showReveal = history.length > 0 && (seenCashLesson || prediction !== null);
       const PL_FIELDS = ["sales", "cogs", "gross", "rent", "labor", "executiveComp", "otherFixed", "depreciation", "operating", "interest", "ordinary", "netProfit"];
       const cumulative = history.reduce((acc, h) => {
         PL_FIELDS.forEach(f => { acc[f] = (acc[f] || 0) + h[f]; });
         return acc;
       }, {});
-      const plRow = (field) => plViewMode === "month"
-        ? manYenRow(lastResult ? lastResult[field] : 0, prev ? prev[field] : null)
-        : manYen(cumulative[field] || 0);
       const plSource = plViewMode === "month" ? lastResult : cumulative;
+      const plPrev = (field) => plViewMode === "month" ? (prev ? prev[field] : null) : null;
+      const showDiff = plViewMode === "month";
       return (
         <Shell cash={cash} cashLabel={CASH_LABEL} transitioning={transitioning}>
           <div className="flex items-center justify-between pt-1">
@@ -453,23 +458,23 @@ export default function InheritDemo() {
                     className={"px-2 py-0.5 rounded-full border " + (plViewMode === "cumulative" ? "bg-amber-700 text-white border-amber-700" : "border-stone-200 text-stone-500")}>累計</button>
                 </div>
               </div>
-              {plViewMode === "month" && <div className="text-[11px] text-stone-400 mb-1">（）内は前月比</div>}
-              <Row label="売上高" val={plRow("sales")} />
-              <Row label="売上原価" val={"−" + plRow("cogs")} />
+              {showDiff && <div className="text-[11px] text-stone-400 mb-1">（）内は前月比</div>}
+              <MoneyRow label="売上高" cur={plSource.sales} prev={plPrev("sales")} showDiff={showDiff} />
+              <MoneyRow label="売上原価" cur={plSource.cogs} prev={plPrev("cogs")} showDiff={showDiff} negative />
               <div className="border-t border-stone-300 my-1" />
-              <Row label="売上総利益" val={plRow("gross")} bold />
-              <Row label="家賃" val={"−" + plRow("rent")} />
-              <Row label="人件費" val={"−" + plRow("labor")} />
-              <Row label="役員報酬" val={"−" + plRow("executiveComp")} />
-              <Row label="その他固定費" val={"−" + plRow("otherFixed")} />
-              <Row label="減価償却費" val={"−" + plRow("depreciation")} />
+              <MoneyRow label="売上総利益" cur={plSource.gross} prev={plPrev("gross")} showDiff={showDiff} bold />
+              <MoneyRow label="家賃" cur={plSource.rent} prev={plPrev("rent")} showDiff={showDiff} negative />
+              <MoneyRow label="人件費" cur={plSource.labor} prev={plPrev("labor")} showDiff={showDiff} negative />
+              <MoneyRow label="役員報酬" cur={plSource.executiveComp} prev={plPrev("executiveComp")} showDiff={showDiff} negative />
+              <MoneyRow label="その他固定費" cur={plSource.otherFixed} prev={plPrev("otherFixed")} showDiff={showDiff} negative />
+              <MoneyRow label="減価償却費" cur={plSource.depreciation} prev={plPrev("depreciation")} showDiff={showDiff} negative />
               <div className="border-t border-stone-300 my-1" />
-              <Row label="営業利益" val={plRow("operating")} bold red={plSource.operating < 0} />
-              <Row label="支払利息" val={"−" + plRow("interest")} />
+              <MoneyRow label="営業利益" cur={plSource.operating} prev={plPrev("operating")} showDiff={showDiff} bold red={plSource.operating < 0} />
+              <MoneyRow label="支払利息" cur={plSource.interest} prev={plPrev("interest")} showDiff={showDiff} negative />
               <div className="border-t border-stone-300 my-1" />
-              <Row label="経常利益" val={plRow("ordinary")} bold red={plSource.ordinary < 0} />
+              <MoneyRow label="経常利益" cur={plSource.ordinary} prev={plPrev("ordinary")} showDiff={showDiff} bold red={plSource.ordinary < 0} />
               <div className="border-t border-stone-300 my-1" />
-              <Row label="当期純利益" val={plRow("netProfit")} bold red={plSource.netProfit < 0} />
+              <MoneyRow label="当期純利益" cur={plSource.netProfit} prev={plPrev("netProfit")} showDiff={showDiff} bold red={plSource.netProfit < 0} />
               <PLDiagram
                 cogs={plSource.cogs}
                 sga={plSource.rent + plSource.labor + plSource.executiveComp + plSource.otherFixed + plSource.depreciation}
@@ -477,49 +482,6 @@ export default function InheritDemo() {
                 sales={plSource.sales}
               />
             </div>
-          )}
-
-          {showQuiz && (
-            <>
-              <TalkBox name="志村（顧問税理士）" avatar={<Shimura size={52} />}>
-                先月の当期純利益は<b>{yen(lastResult.netProfit)}</b>でした。さて、お店の現金は増えたと思いますか？減ったと思いますか？
-              </TalkBox>
-              <div className="flex gap-2 mt-2">
-                <button onClick={() => setPrediction("up")}
-                  className="flex-1 bg-white border border-stone-200 rounded-xl py-3 text-sm hover:border-amber-400">増えたと思う</button>
-                <button onClick={() => setPrediction("down")}
-                  className="flex-1 bg-white border border-stone-200 rounded-xl py-3 text-sm hover:border-amber-400">減ったと思う</button>
-              </div>
-            </>
-          )}
-
-          {showReveal && (
-            <>
-              <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200">
-                <div className="text-xs text-stone-500 mb-1">現金はこう動いた</div>
-                <Row label="当期純利益" val={(lastResult.netProfit >= 0 ? "+" : "−") + manYen(Math.abs(lastResult.netProfit))} />
-                <Row label="減価償却費（現金は減らない）" val={"+" + manYen(lastResult.depreciation)} />
-                <Row label="銀行への元本返済（PLには出ない）" val={"−" + manYen(lastResult.principal)} red />
-                <div className="border-t border-stone-200 my-1" />
-                <Row label="現金の増減" val={(lastResult.cashChange >= 0 ? "+" : "−") + manYen(Math.abs(lastResult.cashChange))} bold red={lastResult.cashChange < 0} />
-              </div>
-              {!seenCashLesson && (
-                <>
-                  <TalkBox name="志村（顧問税理士）" avatar={<Shimura size={52} />}>
-                    {prediction === "up" && lastResult.cashChange < 0 && <>予想は外れましたね。</>}
-                    {prediction === "down" && lastResult.cashChange < 0 && <>正解です。</>}
-                    {lastResult.cashChange >= 0 && <>今月はプラスでした。</>}
-                    {" "}
-                    <b>銀行への返済のうち「元本」はPL（損益計算書）には出てきません。</b>
-                    利息だけが費用として計上されます。
-                    {lastResult.netProfit >= 0
-                      ? <>だから<b>利益が出ていても</b>、元本の返済の分だけ、現金は減っていくんです。</>
-                      : <>今月は当期純利益もマイナスなので、そこに元本の返済も重なって、現金がさらに減っています。役員報酬を見直して、まずは黒字にすることから考えましょう。</>}
-                  </TalkBox>
-                  <button onClick={() => setSeenCashLesson(true)} className="text-[13px] text-amber-700 mt-2">わかった →</button>
-                </>
-              )}
-            </>
           )}
 
           {lastResult && (() => {
@@ -533,22 +495,34 @@ export default function InheritDemo() {
             return (
               <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200">
                 <div className="text-xs text-stone-500 mb-1">貸借対照表（簡易版）</div>
-                <Row label="現金" val={manYenRow(cash, prevCash)} />
-                <Row label="固定資産（什器・敷金など）" val={manYenRow(fixedAssetsBook, prevFixedBook)} />
+                <div className="text-[11px] text-stone-400 mb-1">（）内は前月比</div>
+                <MoneyRow label="現金" cur={cash} prev={prevCash} />
+                <MoneyRow label="固定資産（什器・敷金など）" cur={fixedAssetsBook} prev={prevFixedBook} />
                 <div className="border-t border-stone-300 my-1" />
-                <Row label="資産合計" val={manYenRow(totalAssets, prevTotalAssets)} bold />
+                <MoneyRow label="資産合計" cur={totalAssets} prev={prevTotalAssets} bold />
                 <div className="mt-2" />
-                <Row label="借入金" val={manYenRow(loanBalance, prevLoan)} />
+                <MoneyRow label="借入金" cur={loanBalance} prev={prevLoan} />
                 <div className="border-t border-stone-300 my-1" />
-                <Row label="負債合計" val={manYenRow(loanBalance, prevLoan)} bold />
+                <MoneyRow label="負債合計" cur={loanBalance} prev={prevLoan} bold />
                 <div className="mt-2" />
-                <Row label="資本金" val={manYenRow(CAPITAL_STOCK, CAPITAL_STOCK)} />
-                <Row label="利益剰余金" val={manYenRow(retainedEarnings, prevRetained)} red={retainedEarnings < 0} />
+                <MoneyRow label="資本金" cur={CAPITAL_STOCK} prev={CAPITAL_STOCK} />
+                <MoneyRow label="利益剰余金" cur={retainedEarnings} prev={prevRetained} red={retainedEarnings < 0} />
                 <div className="border-t border-stone-300 my-1" />
-                <Row label="純資産合計" val={manYenRow(totalEquity, prevTotalEquity)} bold />
+                <MoneyRow label="純資産合計" cur={totalEquity} prev={prevTotalEquity} bold />
                 <div className="border-t border-stone-300 my-1" />
-                <Row label="負債・純資産合計" val={manYenRow(loanBalance + CAPITAL_STOCK + retainedEarnings, prevLoan + CAPITAL_STOCK + prevRetained)} bold />
+                <MoneyRow label="負債・純資産合計" cur={loanBalance + CAPITAL_STOCK + retainedEarnings} prev={prevLoan + CAPITAL_STOCK + prevRetained} bold />
                 <BSDiagram totalAssets={totalAssets} liabilities={loanBalance} equity={totalEquity} ratio={equityRatio} />
+                <div className="border-t border-stone-200 my-3" />
+                <div className="text-xs text-stone-500 mb-1">現金はこう動いた</div>
+                <MoneyRow label="当期純利益" cur={lastResult.netProfit} showDiff={false} />
+                <MoneyRow label="減価償却費（現金は減らない）" cur={lastResult.depreciation} showDiff={false} />
+                <MoneyRow label="銀行への元本返済（PLには出ない）" cur={lastResult.principal} negative red showDiff={false} />
+                <div className="border-t border-stone-200 my-1" />
+                <MoneyRow label="現金の増減" cur={lastResult.cashChange} bold red={lastResult.cashChange < 0} showDiff={false} />
+                <div className="text-[12px] text-stone-500 mt-2 leading-relaxed">
+                  銀行への返済のうち「元本」はPL（損益計算書）には出てきません。利息だけが費用として計上されます。
+                  だから利益が出ていても、元本の返済の分だけ現金は減っていくんです（逆に減価償却費は、PL上は費用でも現金は減りません）。
+                </div>
               </div>
             );
           })()}
@@ -630,7 +604,7 @@ export default function InheritDemo() {
     const knownBaseline = BASELINE_QUESTIONS.filter(q => baselineAsked.includes(q.key));
     const knownMenu = STAFF_QUESTIONS.filter(q => staffAsked.includes(q.key));
     const readTopics = lessonsRead.map(key => TAX_TOPICS.find(t => t.key === key)).filter(Boolean);
-    const nothingYet = knownBaseline.length === 0 && knownMenu.length === 0 && readTopics.length === 0 && !seenCashLesson;
+    const nothingYet = knownBaseline.length === 0 && knownMenu.length === 0 && readTopics.length === 0 && history.length === 0;
 
     const toggle = (key) => setNoteOpenKey(k => (k === key ? null : key));
 
@@ -668,7 +642,7 @@ export default function InheritDemo() {
           </div>
         )}
 
-        {seenCashLesson && (
+        {history.length > 0 && (
           <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200">
             <div className="text-xs text-stone-500 mb-1">📌 利益とキャッシュについて</div>
             <div className="text-sm text-stone-600 leading-relaxed">

@@ -1,5 +1,6 @@
 import BSDiagram from "./BSDiagram";
 import PLDiagram from "./PLDiagram";
+import MoneyRow from "./MoneyRow";
 import {
   PRIOR_YEAR_PL, START_CASH, LOAN_START, FIXED_ASSETS, CAPITAL_STOCK, RETAINED_EARNINGS_INIT, manYen, yen,
 } from "./data";
@@ -29,7 +30,24 @@ export const TAX_TOPICS = [
       <>
         損益計算書は、上から順に引き算していくだけです。<b>売上高</b>から<b>売上原価</b>を引くと<b>売上総利益</b>。
         そこから家賃・人件費・<b>役員報酬</b>などの経費を引くと<b>営業利益</b>。さらに<b>支払利息</b>のような本業以外の費用を引いたものが<b>当期純利益</b>です。
-        先代最後の1年間の決算書を見てみましょう。
+        先代最後の1年間の、実際の決算書を見てみましょう。
+        <div className="bg-stone-50 rounded-lg p-2 mt-2 border border-stone-200">
+          <MoneyRow label="売上高" cur={PRIOR_YEAR_PL.sales} showDiff={false} />
+          <MoneyRow label="売上原価" cur={PRIOR_YEAR_PL.cogs} negative showDiff={false} />
+          <div className="border-t border-stone-300 my-1" />
+          <MoneyRow label="売上総利益" cur={PRIOR_YEAR_PL.gross} bold showDiff={false} />
+          <MoneyRow label="家賃" cur={PRIOR_YEAR_PL.rent} negative showDiff={false} />
+          <MoneyRow label="人件費" cur={PRIOR_YEAR_PL.labor} negative showDiff={false} />
+          <MoneyRow label="役員報酬" cur={PRIOR_YEAR_PL.executiveComp} negative showDiff={false} />
+          <MoneyRow label="その他固定費" cur={PRIOR_YEAR_PL.otherFixed} negative showDiff={false} />
+          <MoneyRow label="減価償却費" cur={PRIOR_YEAR_PL.depreciation} negative showDiff={false} />
+          <div className="border-t border-stone-300 my-1" />
+          <MoneyRow label="営業利益" cur={PRIOR_YEAR_PL.operating} bold red={PRIOR_YEAR_PL.operating < 0} showDiff={false} />
+          <MoneyRow label="支払利息" cur={PRIOR_YEAR_PL.interest} negative showDiff={false} />
+          <div className="border-t border-stone-300 my-1" />
+          <MoneyRow label="当期純利益" cur={PRIOR_YEAR_PL.netProfit} bold red={PRIOR_YEAR_PL.netProfit < 0} showDiff={false} />
+        </div>
+        <div className="text-center text-[12px] text-stone-500 mt-2">図示するとこうなります</div>
         <PLDiagram
           cogs={PRIOR_YEAR_PL.cogs}
           sga={PRIOR_YEAR_PL.rent + PRIOR_YEAR_PL.labor + PRIOR_YEAR_PL.executiveComp + PRIOR_YEAR_PL.otherFixed + PRIOR_YEAR_PL.depreciation}
@@ -48,6 +66,24 @@ export const TAX_TOPICS = [
         貸借対照表は「会社の財産の一覧表」です。左側が<b>資産</b>（現金や設備など、会社が持っているもの）。
         右側が、そのお金がどこから来たかを示す<b>負債</b>（銀行からの借入など、返す必要があるお金）と<b>純資産</b>（資本金や利益の積み重ねなど、返す必要がないお金）です。
         必ず「資産＝負債＋純資産」という形で釣り合います。これが引き継いだ時点の、うちの会社のBSです。
+        <div className="bg-stone-50 rounded-lg p-2 mt-2 border border-stone-200">
+          <MoneyRow label="現金" cur={START_CASH} showDiff={false} />
+          <MoneyRow label="固定資産（什器・敷金など）" cur={FIXED_ASSETS} showDiff={false} />
+          <div className="border-t border-stone-300 my-1" />
+          <MoneyRow label="資産合計" cur={PRIOR_TOTAL_ASSETS} bold showDiff={false} />
+          <div className="mt-2" />
+          <MoneyRow label="借入金" cur={LOAN_START} showDiff={false} />
+          <div className="border-t border-stone-300 my-1" />
+          <MoneyRow label="負債合計" cur={LOAN_START} bold showDiff={false} />
+          <div className="mt-2" />
+          <MoneyRow label="資本金" cur={CAPITAL_STOCK} showDiff={false} />
+          <MoneyRow label="利益剰余金" cur={RETAINED_EARNINGS_INIT} showDiff={false} />
+          <div className="border-t border-stone-300 my-1" />
+          <MoneyRow label="純資産合計" cur={PRIOR_TOTAL_EQUITY} bold showDiff={false} />
+          <div className="border-t border-stone-300 my-1" />
+          <MoneyRow label="負債・純資産合計" cur={LOAN_START + PRIOR_TOTAL_EQUITY} bold showDiff={false} />
+        </div>
+        <div className="text-center text-[12px] text-stone-500 mt-2">ざっくり図示するとこうなります</div>
         <BSDiagram totalAssets={PRIOR_TOTAL_ASSETS} liabilities={LOAN_START} equity={PRIOR_TOTAL_EQUITY} ratio={PRIOR_RATIO} />
       </>
     ),
@@ -101,6 +137,13 @@ export const TAX_TOPICS = [
     label: "減価償却って何ですか？",
     answer: <>お店の内装や設備のような高額なものは、買った月に全額を費用にせず、何年かに分けて少しずつ費用にしていきます。これを減価償却といいます。
       現金は買った時に出ていくのに、費用になるのは後々――という、これも利益と現金がズレる原因の一つです。</>,
+  },
+  {
+    key: "retained_earnings",
+    label: "利益はBSのどこに反映されるんですか？",
+    answer: <>PLで出した<b>当期純利益</b>は、そのままBSの純資産の中の「<b>利益剰余金</b>」に積み上がっていきます。
+      黒字が続けば利益剰余金はどんどん増え、自己資本比率も上がっていきます。逆に<b>赤字が続けば利益剰余金は減り</b>、
+      場合によってはマイナスになることもあります。PLの1年間の成績が、時間をかけてBSの純資産に刻まれていくイメージです。</>,
   },
   {
     key: "cashflow_table",
