@@ -359,6 +359,12 @@ export default function InheritDemo() {
     <Shell transitioning={transitioning}>
       <div className="text-center pt-4"><Shimura size={80} /></div>
       <TalkBox name="志村（公認会計士・税理士）" avatar={<Shimura size={52} />}>
+        初めまして。先代からずっと顧問をさせていただいております、公認会計士・税理士の志村と申します。
+      </TalkBox>
+      <TalkBox name="志村（公認会計士・税理士）" avatar={<Shimura size={52} />}>
+        この度は、突然のことで……心よりお悔やみ申し上げます。
+      </TalkBox>
+      <TalkBox name="志村（公認会計士・税理士）" avatar={<Shimura size={52} />}>
         ようこそ。まずは簡単に、会社の状況をお話ししますね。
       </TalkBox>
       <TalkBox name="志村（公認会計士・税理士）" avatar={<Shimura size={52} />}>
