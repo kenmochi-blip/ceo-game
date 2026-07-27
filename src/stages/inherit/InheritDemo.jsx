@@ -62,6 +62,73 @@ const PROMO_QUESTIONS = [
   { key: "cost", q: "配布コストを聞く", a: `印刷費やSNS広告費で、月${manYen(PROMO.otherFixedDelta)}ほどかかりそうです。` },
 ];
 
+// 増減の方向（増えた/減った/変わらない）を当てる、汎用の振り返り設問を1つ作る
+function dirStep(question, beforeVal, afterVal, format) {
+  const dir = afterVal > beforeVal ? "up" : afterVal < beforeVal ? "down" : "flat";
+  return {
+    q: question,
+    choices: [
+      { key: "up", label: "増えた" },
+      { key: "down", label: "減った" },
+      { key: "flat", label: "変わらない" },
+    ],
+    correct: dir,
+    reveal: <>実際は<b>{format(beforeVal)}</b>から<b>{format(afterVal)}</b>{dir === "up" ? "に増えました" : dir === "down" ? "に減りました" : "で変わりませんでした"}。</>,
+  };
+}
+
+// 志村さんとの振り返りQ&A（自分で気づいてから答え合わせする形式）を、施策の種類ごとに組み立てる
+function buildReflection(kind, before, after) {
+  const customers = v => `${v}人`;
+  const causeStep = kind === "hire" ? {
+    q: "客数が減らずに済んだのはなぜだと思いますか？",
+    choices: [
+      { key: "capacity_ok", label: "スタッフを増やして、対応できる上限を需要より高く保ったから" },
+      { key: "price_effect", label: "客単価を上げたから" },
+      { key: "demand_up", label: "たまたまお客様が増えたから" },
+    ],
+    correct: "capacity_ok",
+    reveal: <>スタッフを増やしたことで、対応できる上限が<b>{after.capacity}人</b>に増え、需要<b>{after.demand}人</b>を上回ったので、来られたお客様全員に対応できました。</>,
+  } : kind === "reckless" ? {
+    q: "客数が減ってしまったのはなぜだと思いますか？",
+    choices: [
+      { key: "capacity_short", label: "スタッフを増やさなかったので、対応できる上限が需要を下回ったから" },
+      { key: "price_effect", label: "客単価を上げすぎてお客様が離れたから" },
+      { key: "demand_drop", label: "そもそもお客様の人気がなくなったから" },
+    ],
+    correct: "capacity_short",
+    reveal: <>接客時間が伸びたのに増員しなかったため、対応できる上限は<b>{after.capacity}人</b>に下がりました。需要<b>{after.demand}人</b>を下回ったので、<b className="text-red-600">{after.demand - after.customers}人を取りこぼしています</b>。</>,
+  } : (() => {
+    const actualIncrease = after.customers - before.customers;
+    const correct = actualIncrease < PROMO.claimedNewCustomers ? "capped" : "realized";
+    return {
+      q: `業者さんの「新規+${PROMO.claimedNewCustomers}人」という数字は、そのまま実現したと思いますか？`,
+      choices: [
+        { key: "capped", label: "上限を超えていたので、その通りにはならなかった" },
+        { key: "realized", label: "その通り実現した" },
+      ],
+      correct,
+      reveal: <>今の上限は<b>{after.capacity}人</b>で、実際に増やせた客数は<b>+{actualIncrease}人</b>でした。業者さんの数字を鵜呑みにせず、まず自社の上限と照らし合わせることが大事です。</>,
+    };
+  })();
+
+  const steps = [
+    dirStep("本店の売上は、先月と比べて増えたと思いますか？減ったと思いますか？", before.sales, after.sales, yen),
+    dirStep("客数はどうなったと思いますか？", before.customers, after.customers, customers),
+    dirStep("客単価はどうなったと思いますか？", before.unitPrice, after.unitPrice, yen),
+    causeStep,
+    dirStep("お店の利益（貢献利益）はどうなったと思いますか？", before.contribution, after.contribution, yen),
+  ];
+
+  const summary = kind === "hire"
+    ? <>増員することで、お客様にもしっかり対応でき、利益もしっかり伸びました。良い判断でしたね。</>
+    : kind === "reckless"
+      ? <>客単価は上がったものの、対応しきれずお客様を取りこぼしてしまいました。次からは、決める前に対応できる上限（スタッフ数×接客時間から計算できます）を確認するといいですよ。</>
+      : <>業者さんの数字をそのまま信じると、見込み違いになります。次からは、まず自社の上限と照らし合わせてから判断しましょう。</>;
+
+  return { steps, summary };
+}
+
 // 「継承」オープンワールド型デモ：本社をハブに、店舗（現場の相談）・志村公認会計士・税理士事務所（決算書・解説）・
 // 母（ヒント）を自由に訪ねながら進める。銀行は定期面談ではなく、区切りの月に向こうから訪ねてくる。
 export default function InheritDemo() {
@@ -98,6 +165,10 @@ export default function InheritDemo() {
   const [promoDecisionOpen, setPromoDecisionOpen] = useState(false);
   const [promoMonth, setPromoMonth] = useState(null);
   const [promoResultPending, setPromoResultPending] = useState(false);
+
+  // 志村さんとの振り返り（Q&A形式）：どちらの施策を振り返り中か・何問目か・選んだ答え
+  const [reflectStep, setReflectStep] = useState(0);
+  const [reflectAnswer, setReflectAnswer] = useState(null);
 
   const [introExplainChoice, setIntroExplainChoice] = useState(null);
   const [noteOpenKey, setNoteOpenKey] = useState(null);
@@ -189,6 +260,7 @@ export default function InheritDemo() {
     setStaffEventMonth(null); setStaffEventResultPending(false);
     setSeenPromo(false); setPromoChoice(null); setPromoAsked([]);
     setPromoQAOpen(false); setPromoDecisionOpen(false); setPromoMonth(null); setPromoResultPending(false);
+    setReflectStep(0); setReflectAnswer(null);
     setSeenBaseline(false); setBaselineAsked([]); setBaselineMonth(null);
     setIntroExplainChoice(null); setNoteOpenKey(null); setPlViewMode("month");
     setTaxMode("menu"); setTaxTopic(null); setLessonsRead([]); setReadThisMonth(0);
@@ -375,8 +447,9 @@ export default function InheritDemo() {
     const promoAskedAll = promoAsked.length === PROMO_QUESTIONS.length;
     const lastHonten = lastStoreResults ? lastStoreResults[0] : null;
     const prevHonten = history.length >= 2 ? history[history.length - 2].storeResults[0] : null; // 前月比の比較対象
-    const utilization = lastHonten ? Math.round((lastHonten.customers / hontenNow.capacity) * 100) : null;
-    const prevUtilization = prevHonten ? Math.round((prevHonten.customers / prevHonten.capacity) * 100) : null;
+    // 稼働率は「実客数÷その時点の上限」で必ず100%以下になるよう、同じ月のデータ同士で計算する
+    const utilization = Math.round((Math.min(hontenNow.demand, hontenNow.capacity) / hontenNow.capacity) * 100);
+    const lastUtilization = lastHonten ? Math.round((lastHonten.customers / lastHonten.capacity) * 100) : null;
     return (
       <Shell cash={cash} cashLabel={CASH_LABEL} cashDiff={cashDiff} transitioning={transitioning}>
         <div className="flex items-center justify-between pt-1">
@@ -407,10 +480,8 @@ export default function InheritDemo() {
               diff={lastHonten ? `（${lastHonten.capacity}人）` : ""} />
             <StatRow label="🙋 潜在需要（来たいお客様）" val={`${hontenNow.demand}人/月`} red={hontenNow.demand > hontenNow.capacity}
               diff={lastHonten ? `（${lastHonten.demand}人）` : ""} />
-            {lastHonten && (
-              <StatRow label="📊 稼働率（先月客数÷上限）" val={`${utilization}%`} red={utilization >= 100}
-                diff={prevUtilization !== null ? `（${prevUtilization}%）` : ""} />
-            )}
+            <StatRow label="📊 稼働率（需要÷上限）" val={`${utilization}%`} red={utilization >= 100}
+              diff={lastUtilization !== null ? `（${lastUtilization}%）` : ""} />
           </div>
         )}
 
@@ -585,9 +656,23 @@ export default function InheritDemo() {
   // ===== 志村公認会計士・税理士事務所 =====
   if (screen === "tax") {
     const prev = history.length >= 2 ? history[history.length - 2] : null;
-    const lastHonten = lastStoreResults ? lastStoreResults[0] : null;
-    const staffReflectionPending = staffEventResultPending && month > staffEventMonth && lastHonten;
-    const promoReflectionPending = promoResultPending && month > promoMonth && lastHonten;
+    const historyAt = (m) => { const h = history.find(x => x.m === m); return h ? h.storeResults[0] : null; };
+    const staffAfter = staffEventMonth !== null ? historyAt(staffEventMonth) : null;
+    const staffBefore = staffEventMonth !== null ? historyAt(staffEventMonth - 1) : null;
+    const staffReflectionPending = staffEventResultPending && month > staffEventMonth && staffAfter && staffBefore;
+    const promoAfter = promoMonth !== null ? historyAt(promoMonth) : null;
+    const promoBefore = promoMonth !== null ? historyAt(promoMonth - 1) : null;
+    const promoReflectionPending = promoResultPending && month > promoMonth && promoAfter && promoBefore;
+
+    // 振り返りは一度に1件ずつ（お店で先に起きた方から）。答え合わせの一問一答形式。
+    const reflectKind = staffReflectionPending ? (staffEventChoice === "hire" ? "hire" : "reckless") : (promoReflectionPending ? "promo" : null);
+    const reflectBefore = reflectKind === "promo" ? promoBefore : staffBefore;
+    const reflectAfter = reflectKind === "promo" ? promoAfter : staffAfter;
+    const reflection = reflectKind ? buildReflection(reflectKind, reflectBefore, reflectAfter) : null;
+    const finishReflection = () => {
+      if (reflectKind === "promo") setPromoResultPending(false); else setStaffEventResultPending(false);
+      setReflectStep(0); setReflectAnswer(null);
+    };
 
     if (taxMode === "menu") return (
       <Shell cash={cash} cashLabel={CASH_LABEL} cashDiff={cashDiff} transitioning={transitioning}>
@@ -597,33 +682,57 @@ export default function InheritDemo() {
         </div>
         <div className="text-center pt-3"><Shimura size={72} /></div>
 
-        {/* 先月の店舗施策の振り返り（意思決定はお店で、反省点はここで） */}
-        {staffReflectionPending && (
-          <>
-            <TalkBox name="志村（公認会計士・税理士）" avatar={<Shimura size={52} mood={staffEventChoice === "reckless" ? "worried" : "normal"} />}>
-              {staffEventChoice === "hire" && <>先月、スタッフを増やしてトリートメントを始めましたね。振り返ってみましょう。来られた<b>{lastHonten.customers}人</b>全員に対応でき、客単価は<b>{yen(lastHonten.unitPrice)}</b>に、本店の売上は<b>{yen(lastHonten.sales)}</b>になりました。増員コストとの見合いは決算書で確認できますよ。</>}
-              {staffEventChoice === "reckless" && <>先月、増員せずにトリートメントを始めましたね。振り返ってみましょう。接客時間が延びて対応できる上限が<b>{lastHonten.capacity}人</b>に下がり、来店希望{CURRENT_CUSTOMERS}人のうち<b className="text-red-600">{lastHonten.customers}人しか対応できませんでした</b>（{CURRENT_CUSTOMERS - lastHonten.customers}人を取りこぼし）。次からは、決める前に対応できる上限（スタッフ数×接客時間から出せます）を確認するといいですよ。</>}
-            </TalkBox>
-            <button onClick={() => setStaffEventResultPending(false)} className="text-[13px] text-amber-700 mt-2 mb-1 block ml-auto">わかった →</button>
-          </>
-        )}
-        {promoReflectionPending && (
+        {/* 先月の店舗施策の振り返り（意思決定はお店で、反省点はここで一問一答形式に） */}
+        {reflection && (
           <>
             <TalkBox name="志村（公認会計士・税理士）" avatar={<Shimura size={52} />}>
-              {promoChoice === "run" && <>先月、新規客クーポンを配りましたね。振り返ってみましょう。業者さんは「新規+{PROMO.claimedNewCustomers}人」と言っていましたが、今の上限<b>{lastHonten.capacity}人</b>では捌ききれず頭打ちで、実際に対応できたのは<b>{lastHonten.customers}人</b>でした。配布コストもかかっています。業者さんの数字を鵜呑みにせず、まず自社の上限と照らし合わせてから判断するといいですよ。</>}
+              {reflectKind === "hire" && <>先月、スタッフを増やしてトリートメントを始めましたね。数字を一緒に振り返ってみましょう。</>}
+              {reflectKind === "reckless" && <>先月、増員せずにトリートメントを始めましたね。数字を一緒に振り返ってみましょう。</>}
+              {reflectKind === "promo" && <>先月、新規客クーポンを配りましたね。数字を一緒に振り返ってみましょう。</>}
             </TalkBox>
-            <button onClick={() => setPromoResultPending(false)} className="text-[13px] text-amber-700 mt-2 mb-1 block ml-auto">わかった →</button>
+
+            {reflectStep < reflection.steps.length ? (
+              <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200">
+                <div className="text-sm text-stone-700 mb-2">{reflection.steps[reflectStep].q}</div>
+                {reflectAnswer === null ? (
+                  <div className="flex flex-col gap-2">
+                    {reflection.steps[reflectStep].choices.map(c => (
+                      <button key={c.key} onClick={() => setReflectAnswer(c.key)}
+                        className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">{c.label}</button>
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    <div className={"text-[13px] font-medium " + (reflectAnswer === reflection.steps[reflectStep].correct ? "text-green-700" : "text-red-600")}>
+                      {reflectAnswer === reflection.steps[reflectStep].correct ? "正解です！" : "実は違いました。"}
+                    </div>
+                    <div className="text-[13px] text-stone-600 mt-1 leading-relaxed">{reflection.steps[reflectStep].reveal}</div>
+                    <button onClick={() => { setReflectStep(s => s + 1); setReflectAnswer(null); }}
+                      className="text-[13px] text-amber-700 mt-2 block ml-auto">次へ →</button>
+                  </>
+                )}
+              </div>
+            ) : (
+              <>
+                <TalkBox name="志村（公認会計士・税理士）" avatar={<Shimura size={52} />}>{reflection.summary}</TalkBox>
+                <button onClick={finishReflection} className="text-[13px] text-amber-700 mt-2 mb-1 block ml-auto">わかった →</button>
+              </>
+            )}
           </>
         )}
 
-        <TalkBox name="志村（公認会計士・税理士）" avatar={<Shimura size={52} />}>
-          ようこそ。決算書を見ますか？　それとも、何か相談したいことがありますか？
-        </TalkBox>
-        <div className="flex flex-col gap-2 mt-3">
-          <LocationCard icon="📊" title="決算書を見る" subtitle="損益計算書・貸借対照表を確認する" onClick={() => setTaxMode("statements")} />
-          <LocationCard icon="💬" title="相談する" subtitle="経営の話をいろいろ聞く" onClick={() => setTaxMode("qa")} />
-          <LocationCard icon="💴" title="役員報酬を見直す" subtitle="社長の報酬を変えると数字がどう動くか" onClick={() => setTaxMode("draw")} />
-        </div>
+        {!reflection && (
+          <>
+            <TalkBox name="志村（公認会計士・税理士）" avatar={<Shimura size={52} />}>
+              ようこそ。決算書を見ますか？　それとも、何か相談したいことがありますか？
+            </TalkBox>
+            <div className="flex flex-col gap-2 mt-3">
+              <LocationCard icon="📊" title="決算書を見る" subtitle="損益計算書・貸借対照表を確認する" onClick={() => setTaxMode("statements")} />
+              <LocationCard icon="💬" title="相談する" subtitle="経営の話をいろいろ聞く" onClick={() => setTaxMode("qa")} />
+              <LocationCard icon="💴" title="役員報酬を見直す" subtitle="社長の報酬を変えると数字がどう動くか" onClick={() => setTaxMode("draw")} />
+            </div>
+          </>
+        )}
         <Btn onClick={() => setScreen("hub")}>← 事務所を出る</Btn>
       </Shell>
     );
