@@ -3,9 +3,12 @@ import { manYen } from "./data";
 const MIN_PCT = 6; // 極端に小さい区分でも視認できる最低の高さ(%)
 
 // PLの面積図（費用の積み上げ 対 収益、その差が当期純利益として視覚的にわかる）
-export default function PLDiagram({ cogs, sga, interest, sales }) {
+// 特別損失があるときは、それも費用の棒に積む。積まないと「2本の差＝当期純利益」が
+// 成り立たなくなる（差が経常利益になってしまう）ため。
+export default function PLDiagram({ cogs, sga, interest, sales, extraordinaryLoss = 0 }) {
   const safeInterest = Math.max(interest, 0);
-  const costTotal = cogs + sga + safeInterest;
+  const safeExtra = Math.max(extraordinaryLoss, 0);
+  const costTotal = cogs + sga + safeInterest + safeExtra;
   const maxVal = Math.max(costTotal, sales, 1);
   const rawPct = v => (Math.max(v, 0) / maxVal) * 100;
   const pct = v => `${v <= 0 ? 0 : Math.max(rawPct(v), MIN_PCT)}%`;
@@ -26,6 +29,12 @@ export default function PLDiagram({ cogs, sga, interest, sales }) {
             <div style={{ height: pct(safeInterest), backgroundColor: "#9b7fd8" }}
               className="flex items-center justify-center text-center text-[9px] text-white leading-none px-1 overflow-hidden">
               支払利息
+            </div>
+          )}
+          {safeExtra > 0 && (
+            <div style={{ height: pct(safeExtra), backgroundColor: "#c2410c" }}
+              className="flex items-center justify-center text-center text-[10px] text-white leading-tight px-1 overflow-hidden">
+              {rawPct(safeExtra) >= MIN_PCT * 0.8 ? <>特別損失<br />{manYen(safeExtra)}</> : "特別損失"}
             </div>
           )}
         </div>

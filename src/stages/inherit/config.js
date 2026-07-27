@@ -15,9 +15,11 @@ export const GAME_MODES = {
     eventRateCh3: 0.5,     // 第3章の月あたり発生期待値
   },
   // 短縮デモ：4ヶ月で銀行が再訪して区切りをつける。外部イベントも卒業も出さない。
+  // chapter1End をデモ期間と同じにして、最後の1ヶ月だけダッシュボードや施策メニューが
+  // 顔を出す中途半端な状態を避ける。デモは第1章（決算書の見方・利益と現金）に絞る。
   demo: {
     key: "demo",
-    chapter1End: 3,
+    chapter1End: 4,
     graduationMonth: null,
     hardEnd: 4,
     eventStartMonth: null,

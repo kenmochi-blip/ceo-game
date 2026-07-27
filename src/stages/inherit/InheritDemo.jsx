@@ -930,7 +930,8 @@ export default function InheritDemo() {
               <MoneyRow label="当期純利益" cur={plSource.netProfit} prev={plPrev("netProfit")} showDiff={showDiff} bold red={plSource.netProfit < 0} />
               <PLDiagram cogs={plSource.cogs}
                 sga={plSource.rent + plSource.labor + plSource.executiveComp + plSource.otherFixed + plSource.depreciation}
-                interest={plSource.interest} sales={plSource.sales} />
+                interest={plSource.interest} sales={plSource.sales}
+                extraordinaryLoss={plSource.extraordinaryLoss ?? 0} />
             </div>
           )}
 
