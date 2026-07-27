@@ -264,7 +264,7 @@ export default function InheritDemo() {
     </Shell>
   );
 
-  // ===== 導入（母から引き継ぎ・役員報酬を一度だけ決める） =====
+  // ===== 導入（母から引き継ぎ） =====
   if (screen === "intro") return (
     <Shell transitioning={transitioning}>
       <div className="text-center pt-4"><Mother size={80} mood="worried" /></div>
@@ -277,21 +277,12 @@ export default function InheritDemo() {
         <Row label="銀行からの借入残高" val={yen(LOAN_START)} red />
       </div>
       <TalkBox name="母" avatar={<Mother size={52} />}>
-        まず、あなたの役員報酬を決めておきましょう。会社の役員報酬は、個人事業主の生活費と違って<b>会社の経費</b>になるの。とりあえず今は父の代の水準にしておいて、あとで志村さんと相談しながら見直せばいいわ。
+        あなたの役員報酬は、とりあえず今は父の代の水準のままにしてあるわ。会社の経費になる話だから、あとで志村さんと相談しながら見直していきましょう。
       </TalkBox>
-      <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200">
-        <div className="flex justify-between text-sm text-stone-600">
-          <span>あなたの役員報酬（月額）</span>
-          <span className="font-medium">{yen(draw)}</span>
-        </div>
-        <input type="range" min={DRAW_MIN} max={DRAW_MAX} step={DRAW_STEP} value={draw}
-          onChange={e => setDraw(parseInt(e.target.value))} className="w-full mt-1" />
-        <div className="flex justify-between text-[13px] text-stone-400"><span>切り詰める</span><span>父の代の水準</span></div>
-      </div>
       <TalkBox name="母" avatar={<Mother size={52} />}>
-        決まったら、まずは志村さんのところに行ってきて。
+        まずは志村さんのところに行ってきて。
       </TalkBox>
-      <Btn onClick={() => setScreen("taxFirstVisit")}>この報酬で引き継ぐ →</Btn>
+      <Btn onClick={() => setScreen("taxFirstVisit")}>会社を継ぐ →</Btn>
     </Shell>
   );
 
