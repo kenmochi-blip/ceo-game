@@ -6,7 +6,7 @@
 //   ・capacity（対応可能人数の上限）は 店の広さ・設備＝スタッフ数と一人あたり接客時間で決まる
 //   ・施策は「需要／客単価／接客時間／人員／コスト のどのレバーをどれだけ動かすか」を宣言するだけ
 //     → ③の因数分解がそのまま計算式になり、capacity上限が自動で効く（＝失敗も自然に発生する）
-//   会社PL ＝ Σ店舗の貢献利益 − 役員報酬（本社費） − 支払利息
+//   会社PL ＝ Σ店舗営業利益 − 役員報酬（本社費） − 支払利息
 //   会社BS／現金／借入 は会社レベル。出店＝storesに1件追加、エリアマネージャー＝本社費レバー、で拡張する。
 
 export const COMPANY_NAME = "株式会社フルール";
@@ -58,7 +58,7 @@ export const STORE_DEFS = [
     cogsRate: 0.22,
     rent: 180000, otherFixed: 90000, depreciation: 40000,
     wagePerStaff: 290000,
-    fixedAssets: 3500000,   // 本店より小さめ。この店は貢献がほぼトントン＝将来の「赤字店舗どうする」の布石
+    fixedAssets: 3500000,   // 本店より小さめ。この店は店舗営業利益がほぼトントン＝将来の「赤字店舗どうする」の布石
   },
 ];
 
@@ -89,18 +89,21 @@ export function deriveStore(s) {
   return { serviceHours, capacity, demand, customers, unitPrice };
 }
 
-// 店舗の1ヶ月（PLの店舗貢献まで）
+// 店舗の1ヶ月（店舗営業利益まで）
+// ※ storeOperating は「貢献利益」ではない。貢献利益は本来 売上−変動費 で、
+//    ここでは家賃・人件費・減価償却（いずれも固定費）まで差し引いている。
+//    本社経費（役員報酬）と支払利息を負担する前の、店舗単位の営業利益。
 export function calcStoreMonth(s) {
   const d = deriveStore(s);
   const sales = Math.round(d.customers * d.unitPrice);
   const cogs = Math.round(sales * s.cogsRate);
   const labor = s.staffCount * s.wagePerStaff;
   const otherFixed = s.otherFixed + (s.otherFixedDelta || 0);
-  const contribution = sales - cogs - s.rent - labor - otherFixed - s.depreciation; // 店舗貢献利益（本社費・利息控除前）
+  const storeOperating = sales - cogs - s.rent - labor - otherFixed - s.depreciation;
   return {
     id: s.id, name: s.name,
     capacity: d.capacity, demand: d.demand, customers: d.customers, unitPrice: d.unitPrice, serviceHours: d.serviceHours,
-    sales, cogs, rent: s.rent, labor, otherFixed, depreciation: s.depreciation, contribution,
+    sales, cogs, rent: s.rent, labor, otherFixed, depreciation: s.depreciation, storeOperating,
     staffCount: s.staffCount,
   };
 }

@@ -117,7 +117,7 @@ function buildReflection(kind, before, after) {
     dirStep("客数はどうなったと思いますか？", before.customers, after.customers, customers),
     dirStep("客単価はどうなったと思いますか？", before.unitPrice, after.unitPrice, yen),
     causeStep,
-    dirStep("お店の利益（貢献利益）はどうなったと思いますか？", before.contribution, after.contribution, yen),
+    dirStep("お店の利益（店舗営業利益）はどうなったと思いますか？", before.storeOperating, after.storeOperating, yen),
   ];
 
   const summary = kind === "hire"
