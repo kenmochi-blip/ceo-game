@@ -816,6 +816,15 @@ export default function InheritDemo() {
                 <button onClick={finishReflection} className="text-[13px] text-amber-700 mt-2 mb-1 block ml-auto">わかった →</button>
               </>
             )}
+
+            {/* 振り返り中でも決算書は見に行けるようにする。
+                数字を自分で確かめてから答えたい人を、クイズに閉じ込めない。
+                戻ってくれば振り返りは同じ設問から続く。 */}
+            <div className="mt-3">
+              <LocationCard icon="📊" title="先に決算書を見る"
+                subtitle="数字を確かめてから答えても大丈夫です"
+                onClick={() => setTaxMode("statements")} />
+            </div>
           </>
         )}
 
