@@ -10,10 +10,10 @@
 //   画面遷移やパネル開閉といったUIの状態は、これとは別にReact側で持つ。
 
 import {
-  makeStores, calcMonth, START_CASH, LOAN_START, DRAW_DEFAULT,
+  makeStores, calcMonth, deriveStore, START_CASH, LOAN_START, DRAW_DEFAULT,
   MARKET_WAGE_START, MARKET_WAGE_DRIFT, ANNUAL_RATE,
   FIXED_ASSETS, CAPITAL_STOCK, RETAINED_EARNINGS_INIT,
-  EQUITY_RATIO_TARGET, EQUITY_STREAK_TARGET,
+  EQUITY_RATIO_TARGET,
 } from "./data";
 import { pruneEffects } from "./effects";
 import { MODE, GRADUATION } from "./config";
@@ -37,8 +37,14 @@ export function initialGame(gender = "son") {
     stores: makeStores(),
     effects: [],
     marketWage: MARKET_WAGE_START,
+    fixedAssets: FIXED_ASSETS,   // 設備投資で増えるのでstateで持つ
     history: [],
     lastResult: null,
+
+    // 決算で処理する未計上の支出
+    pendingActionCost: 0,        // 施策の費用（販管費として計上）
+    pendingCapex: [],            // 設備投資（資産計上）
+    pendingExtraordinaryLoss: 0, // 災害損失など
 
     // 第1章の固定イベント進行
     seenBaseline: false, baselineAsked: [], baselineMonth: null,
@@ -69,9 +75,11 @@ export function initialGame(gender = "son") {
 
 // ── BS系の導出（履歴から計算する。stateに持たない）──
 export function derived(g) {
+  // 固定資産は設備投資で増えるので state 側を優先する（持たない古いセーブは定数にフォールバック）
+  const fixedAssets = g.fixedAssets ?? FIXED_ASSETS;
   const accumDep = g.history.reduce((s, h) => s + h.depreciation, 0);
   const retainedEarnings = RETAINED_EARNINGS_INIT + g.history.reduce((s, h) => s + h.netProfit, 0);
-  const fixedAssetsBook = Math.max(0, FIXED_ASSETS - accumDep);
+  const fixedAssetsBook = Math.max(0, fixedAssets - accumDep);
   const totalAssets = g.cash + fixedAssetsBook;
   const totalEquity = CAPITAL_STOCK + retainedEarnings;
   const equityRatio = totalAssets > 0 ? (totalEquity / totalAssets) * 100 : 0;
@@ -104,9 +112,23 @@ export function runAction(g, actionId, storeId) {
   const store = a.scope === "company" ? null : storeById(g, storeId);
   let next = { ...g };
 
-  next.cash = g.cash - (a.initialCost ?? 0);
-  if (a.effects) next.effects = [...g.effects, ...a.effects(g, store)];
+  // 現金はここでは減らさない。月次処理でPLに費用（または資産）として計上したうえで動かす。
+  // ここで直接引くと、その支出がPLにもBSにも現れず「資産＝負債＋純資産」が恒久的に崩れる。
+  const cost = a.initialCost ?? 0;
+  if (cost > 0) {
+    if (a.capitalize) {
+      // 設備投資は費用ではなく資産の取得。現金は出ていくが、PLには減価償却として少しずつ乗る。
+      next.pendingCapex = [...(g.pendingCapex ?? []), { storeId: store?.id ?? null, amount: cost }];
+    } else {
+      // 広告費・採用費・研修費などは本業の費用（販管費）
+      next.pendingActionCost = (g.pendingActionCost ?? 0) + cost;
+    }
+  }
+
+  const newEffects = a.effects ? a.effects(g, store) : [];
+  if (newEffects.length) next.effects = [...g.effects, ...newEffects];
   if (a.patch && store) next.stores = applyStorePatch(g.stores, store.id, a.patch);
+  if (a.companyPatch) Object.assign(next, a.companyPatch);
   if (a.delayedPatch && store) {
     next.delayedPatches = [...g.delayedPatches, {
       month: g.month + a.delayedPatch.months, storeId: store.id,
@@ -115,17 +137,27 @@ export function runAction(g, actionId, storeId) {
   }
   next.actionCooldowns = { ...g.actionCooldowns, [`${a.id}:${store?.id ?? "co"}`]: g.month };
   next.actionLog = [...g.actionLog, { actionId: a.id, storeId: store?.id ?? null, month: g.month, label: a.label }];
-  // 施策には必ず答え合わせをつける（打ちっぱなしにしない）
+
+  // 施策には必ず答え合わせをつける（打ちっぱなしにしない）。
+  // 比較する月は「効果が最初に乗る月」。ここを実行月にすると、効果が翌月以降に始まる施策では
+  // 変化のない2ヶ月を突き合わせることになり、振り返りが全問「変わりませんでした」になる。
   if (store) {
+    const starts = [
+      ...newEffects.map(e => e.startMonth),
+      ...(a.delayedPatch ? [g.month + a.delayedPatch.months] : []),
+      ...(a.patch ? [g.month] : []),
+    ];
+    const firstMonth = starts.length ? Math.min(...starts) : g.month;
     next.pendingReflections = [...g.pendingReflections, {
-      kind: "action", actionId: a.id, storeId: store.id, month: g.month, label: a.label,
+      kind: "action", actionId: a.id, storeId: store.id, month: firstMonth,
+      decidedMonth: g.month, label: a.label,
     }];
   }
   return next;
 }
 
 // ── 月次処理 ──
-// 順序が重要：予兆の消化 → 遅延パッチ → 決算 → 状態更新 → イベント判定 → 章の判定
+// 順序が重要：予兆の消化 → 遅延パッチ → 設備投資の資産計上 → 決算 → 状態更新 → イベント判定 → 章の判定
 export function advance(g) {
   let next = { ...g, inbox: [] };
   const inbox = [];
@@ -152,8 +184,23 @@ export function advance(g) {
   }
   next.delayedPatches = stillDelayed;
 
-  // 3. 今月の決算
+  // 3. 設備投資の資産計上（費用ではないのでPLには乗らず、以後の減価償却として少しずつ乗る）
+  const capexList = next.pendingCapex ?? [];
+  const capexTotal = capexList.reduce((a, c) => a + c.amount, 0);
+  if (capexTotal > 0) {
+    next.fixedAssets = (next.fixedAssets ?? FIXED_ASSETS) + capexTotal;
+    for (const c of capexList) {
+      if (!c.storeId) continue;
+      // 耐用年数5年（60ヶ月）で按分して各店の減価償却費に上乗せする
+      next.stores = applyStorePatch(next.stores, c.storeId, { depreciation: Math.round(c.amount / 60) });
+    }
+  }
+  next.pendingCapex = [];
+
+  // 4. 今月の決算
   const extraLoss = next.pendingExtraordinaryLoss ?? 0;
+  const actionCost = next.pendingActionCost ?? 0;
+  const bookBefore = derived(next).fixedAssetsBook; // 償却の上限（取得原価を超えて償却しない）
   const result = calcMonth({
     loanBalance: next.loanBalance,
     executiveComp: next.draw,
@@ -161,37 +208,44 @@ export function advance(g) {
     effects: next.effects,
     month: g.month,
     extraordinaryLoss: extraLoss,
+    actionCost,
+    annualRate: next.annualRate ?? ANNUAL_RATE,
+    depreciationCap: bookBefore,
   });
   next.pendingExtraordinaryLoss = 0;
+  next.pendingActionCost = 0;
 
-  const newCash = next.cash + result.cashChange;
-  next.history = [...next.history, { m: g.month, cash: newCash, ...result }];
+  // 施策費は cashChange（netProfit経由）に含まれる。設備投資は費用ではないので別途差し引く。
+  const newCash = next.cash + result.cashChange - capexTotal;
+  next.history = [...next.history, { m: g.month, cash: newCash, capex: capexTotal, ...result }];
   next.lastResult = result;
   next.cash = newCash;
   next.loanBalance = result.newLoanBalance;
   next.readThisMonth = 0;
 
-  // 4. 店舗の状態を更新（疲弊・設備の経過・業界賃金の上昇）
+  // 5. 店舗の状態を更新（疲弊・設備の経過・業界賃金の上昇）
   next.stores = next.stores.map(s => {
     const r = result.storeResults.find(x => x.id === s.id);
     const strained = r && r.utilization >= 0.95;
+    // エリアマネージャーがいると現場に目が届き、疲弊が溜まる速さが半分になる
+    const step = next.areaManager ? 0.5 : 1;
     return {
       ...s,
       equipmentAge: (s.equipmentAge ?? 0) + 1,
-      strainMonths: strained ? (s.strainMonths ?? 0) + 1 : 0,
+      strainMonths: strained ? (s.strainMonths ?? 0) + step : 0,
     };
   });
   next.marketWage = Math.round(next.marketWage * (1 + MARKET_WAGE_DRIFT));
 
-  // 5. 自己資本比率のストリーク
+  // 6. 自己資本比率のストリーク
   const d = derived(next);
   next.equityStreak = d.equityRatio >= EQUITY_RATIO_TARGET ? next.equityStreak + 1 : 0;
 
-  // 6. 月を進める
+  // 7. 月を進める
   next.month = g.month + 1;
   next.effects = pruneEffects(next.effects, next.month);
 
-  // 7. 外部イベントの判定（第2章以降・本編のみ）
+  // 8. 外部イベントの判定（第2章以降・本編のみ）
   const rate = eventRate(next);
   if (rate > 0) {
     const { fired, pressure } = rollEvents(next, rate);
@@ -215,7 +269,7 @@ export function advance(g) {
     }
   }
 
-  // 8. 章の判定
+  // 9. 章の判定
   next.chapter = chapterOf(next);
   next.inbox = inbox;
   return next;
@@ -235,7 +289,11 @@ function fireEvent(g, ev, storeId) {
   next.activeEventLog = [...next.activeEventLog, { eventId: ev.id, storeId: store?.id ?? null, month: g.month, title: ev.title }];
   return {
     game: next,
-    messages: [{ kind: "event", who: out.tell, text: out.text, title: ev.title, good: !!ev.good, storeName: store?.name }],
+    messages: [{
+      kind: "event", who: out.tell, text: out.text, title: ev.title, good: !!ev.good,
+      // 会社レベルのイベントに、抽選で選ばれただけの無関係な店舗名を出さない
+      storeName: ev.scope === "company" ? null : store?.name,
+    }],
   };
 }
 
@@ -291,7 +349,10 @@ export function graduationCheck(g) {
 
 // ── 体力指標（ダッシュボード用）──
 export function healthOf(store, g) {
-  const wageRatio = store.wagePerStaff / g.marketWage;
+  // 昇給施策は effects 側で効くので、素の wagePerStaff ではなく実効値で見る。
+  // 素の値を見ていると「給与を上げる」を打っても体力表示が一切変わらない。
+  const eff = deriveStore(store, g.effects, g.month);
+  const wageRatio = eff.wagePerStaff / g.marketWage;
   const wage = wageRatio >= 1.05 ? "ok" : wageRatio >= 0.95 ? "warn" : "crit";
   const edu = store.educationLevel >= 4 ? "ok" : store.educationLevel >= 2 ? "warn" : "crit";
   const equip = store.equipmentAge < 24 ? "ok" : store.equipmentAge < 48 ? "warn" : "crit";

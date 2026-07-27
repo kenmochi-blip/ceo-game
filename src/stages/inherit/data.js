@@ -141,12 +141,19 @@ export function calcStoreMonth(s, effects = [], month = 0) {
 
 /**
  * 会社全体の1ヶ月。
- * @param o { loanBalance, executiveComp, stores, effects, month, extraordinaryLoss, extraordinaryGain }
+ * @param o {
+ *   loanBalance, executiveComp, stores, effects, month,
+ *   extraordinaryLoss, extraordinaryGain,
+ *   actionCost      その月に実行した施策の費用（広告費・採用費・研修費など＝販管費）
+ *   annualRate      借入金利。金利改定イベントで動くので定数ではなく引数で受ける
+ *   depreciationCap 固定資産の残存簿価。取得原価を超えて償却し続けないための上限
+ * }
  */
 export function calcMonth(o) {
   const {
     loanBalance, executiveComp, stores, effects = [], month = 0,
     extraordinaryLoss = 0, extraordinaryGain = 0,
+    actionCost = 0, annualRate = ANNUAL_RATE, depreciationCap = Infinity,
   } = o;
 
   const storeResults = stores.map(s => calcStoreMonth(s, effects, month));
@@ -158,29 +165,36 @@ export function calcMonth(o) {
   const rent = sum("rent");
   const labor = sum("labor");
   const storeOtherFixed = sum("otherFixed");
-  const depreciation = sum("depreciation");
   const storeOperatingTotal = sum("storeOperating");
+
+  // 簿価を超えて償却しない。超過分は費用に計上しないので店舗営業利益に足し戻す。
+  const depreciationRaw = sum("depreciation");
+  const depreciation = Math.max(0, Math.min(depreciationRaw, Math.max(0, depreciationCap)));
+  const depAdjust = depreciationRaw - depreciation;
 
   // 本社経費：役員報酬 ＋ エリアマネージャー等（hqOtherFixedレバー）
   const hqOtherFixed = Math.max(0, sumLever(effects, month, "hqOtherFixed"));
   const hqCost = executiveComp + hqOtherFixed;
 
-  const otherFixed = storeOtherFixed + hqOtherFixed; // PL表示上の「その他固定費」
-  const operating = storeOperatingTotal - hqCost;    // 営業利益
-  const interest = Math.round(loanBalance * (ANNUAL_RATE / 12));
+  // 施策費は本業の費用（広告宣伝費・採用費・研修費など）なので販管費に入れる。
+  // 特別損失にしてしまうと「その期かぎりの出来事」という説明と矛盾する。
+  const otherFixed = storeOtherFixed + hqOtherFixed + actionCost;
+  const operating = storeOperatingTotal + depAdjust - hqCost - actionCost; // 営業利益
+  const interest = Math.round(loanBalance * (annualRate / 12));
   const ordinary = operating - interest;             // 経常利益＝平常時の実力
   const netProfit = ordinary + extraordinaryGain - extraordinaryLoss; // 当期純利益（税金は考慮しない簡易モデル）
 
   const principal = Math.min(PRINCIPAL_PAYMENT, loanBalance);
   // 減価償却費は現金を伴わない費用なので足し戻す。元本返済は差し引く。
+  // 施策費は netProfit に含まれており、実際の支出もこの月に起きるので調整しない。
   const cashChange = netProfit - principal + depreciation;
 
   return {
     storeResults,
     sales, cogs, gross, rent, labor, otherFixed, storeOtherFixed, hqOtherFixed,
-    executiveComp, hqCost, depreciation, storeOperatingTotal,
+    executiveComp, hqCost, depreciation, storeOperatingTotal, actionCost,
     operating, interest, ordinary, extraordinaryLoss, extraordinaryGain, netProfit,
-    principal, cashChange,
+    principal, cashChange, annualRate,
     customers: sum("customers"),
     newLoanBalance: loanBalance - principal,
   };

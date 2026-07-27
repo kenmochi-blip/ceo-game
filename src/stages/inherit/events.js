@@ -13,7 +13,7 @@
 //   カテゴリごとに圧を溜め、発火したらリセットすることで、頻度を穏やかに保つ。
 
 import { makeEffect } from "./effects";
-import { manYen } from "./data";
+import { manYen, deriveStore } from "./data";
 
 export const CATEGORIES = ["人事", "設備", "市場", "制度", "災害"];
 
@@ -27,8 +27,10 @@ export function stateMultiplier(category, g) {
   const avg = (f) => stores.reduce((a, s) => a + f(s), 0) / Math.max(1, stores.length);
   switch (category) {
     case "人事": {
-      // 給与が業界水準を下回るほど、疲弊が続くほど、教育が薄いほど辞めやすい
-      const wageRatio = avg(s => s.wagePerStaff) / g.marketWage;
+      // 給与が業界水準を下回るほど、疲弊が続くほど、教育が薄いほど辞めやすい。
+      // 昇給は effects で効くので実効値で見ること。素の wagePerStaff を見ると
+      // 「給与を上げる」施策が退職確率にまったく効かなくなる。
+      const wageRatio = avg(s => deriveStore(s, g.effects, g.month).wagePerStaff) / g.marketWage;
       const wagePenalty = wageRatio < 1 ? 1 + (1 - wageRatio) * 6 : Math.max(0.5, 1 - (wageRatio - 1) * 2);
       const strain = 1 + avg(s => s.strainMonths) * 0.25;
       const edu = 1 + (3 - avg(s => s.educationLevel)) * 0.12;
@@ -63,7 +65,7 @@ export const EVENTS = [
       tell: "店長",
       text: "駅前に新しいサロンができました。うちのお客様も何人か、そちらに流れているみたいです……。",
       effects: [
-        makeEffect({ lever: "demand", value: -Math.round(store.baseDemand * 0.15), startMonth: g.month + 1, duration: null, storeId: store.id, source: "駅前の競合店", category: "市場" }),
+        makeEffect({ lever: "demand", value: -Math.round(store.baseDemand * 0.15), startMonth: g.month, duration: null, storeId: store.id, source: "駅前の競合店", category: "市場" }),
       ],
     }),
   },
@@ -77,7 +79,8 @@ export const EVENTS = [
     fire: (g, store) => ({
       tell: "店長",
       text: "申し上げにくいのですが……スタイリストが1人、辞めることになりました。対応できる人数が減ってしまいます。",
-      patch: { staffCount: -1, strainMonths: 0 },
+      // strainMonths は "=0" で絶対値指定。0 と書くと「0を足す」＝何もしない、になる
+      patch: { staffCount: -1, strainMonths: "=0" },
     }),
   },
   {
@@ -85,15 +88,16 @@ export const EVENTS = [
     category: "設備",
     title: "給湯設備の故障",
     cooldown: 10,
-    severe: true,   // まとまった特別損失を伴う。第2章（手習い）では起こさない
+    severe: true,   // まとまった出費を伴う。第2章（手習い）では起こさない
     fire: (g, store) => ({
       tell: "店長",
       text: `給湯器が壊れてしまいました。修理費が${manYen(400000)}かかります。直るまでは施術に時間がかかってしまいます。`,
-      extraordinaryLoss: 400000,
+      // 修繕費は本業の費用（販管費）。災害損失と違い特別損失ではない。
       effects: [
-        makeEffect({ lever: "serviceHours", value: 0.2, startMonth: g.month + 1, duration: 1, storeId: store.id, source: "設備故障（修理中）", category: "設備" }),
+        makeEffect({ lever: "otherFixed", value: 400000, startMonth: g.month, duration: 1, storeId: store.id, source: "給湯器の修理費", category: "設備", hidden: true }),
+        makeEffect({ lever: "serviceHours", value: 0.2, startMonth: g.month, duration: 1, storeId: store.id, source: "設備故障（修理中）", category: "設備" }),
       ],
-      patch: { equipmentAge: 0 },
+      patch: { equipmentAge: "=0" },
     }),
   },
   {
@@ -107,12 +111,13 @@ export const EVENTS = [
       text: `昨夜の大雨で店が浸水しました。復旧に${manYen(800000)}かかります。しばらくお客様も減ると思います。`,
       extraordinaryLoss: 800000,
       effects: [
-        makeEffect({ lever: "demand", value: -Math.round(store.baseDemand * 0.4), startMonth: g.month + 1, duration: 2, storeId: store.id, source: "浸水の影響", category: "災害" }),
+        makeEffect({ lever: "demand", value: -Math.round(store.baseDemand * 0.4), startMonth: g.month, duration: 2, storeId: store.id, source: "浸水の影響", category: "災害" }),
       ],
     }),
   },
   {
     id: "material_up",
+    scope: "company",   // 特定の店舗の話ではない（画面に店舗名を出さない）
     category: "市場",
     title: "カラー剤の仕入価格が高騰",
     cooldown: 12,
@@ -120,13 +125,14 @@ export const EVENTS = [
       tell: "志村（公認会計士・税理士）",
       text: "材料の相場が上がっていますね。しばらく原価率が2ポイントほど高い状態が続きそうです。仕入先の見直しも検討してみてください。",
       effects: g.stores.map(s => makeEffect({
-        lever: "cogsRateExternal", value: 0.02, startMonth: g.month + 1, duration: 8,
+        lever: "cogsRateExternal", value: 0.02, startMonth: g.month, duration: 8,
         storeId: s.id, source: "材料費の高騰", category: "市場",
       })),
     }),
   },
   {
     id: "min_wage",
+    scope: "company",   // 特定の店舗の話ではない（画面に店舗名を出さない）
     category: "制度",
     title: "最低賃金の引き上げ",
     cooldown: 12,
@@ -135,7 +141,7 @@ export const EVENTS = [
       tell: "志村（公認会計士・税理士）",
       text: "最低賃金が引き上げられました。人件費が上がります。業界の給与水準も上がるので、据え置きだと相対的に見劣りしてしまいますよ。",
       effects: g.stores.map(s => makeEffect({
-        lever: "wagePerStaff", value: Math.round(s.wagePerStaff * 0.03), startMonth: g.month + 1, duration: null,
+        lever: "wagePerStaff", value: Math.round(s.wagePerStaff * 0.03), startMonth: g.month, duration: null,
         storeId: s.id, source: "最低賃金の引き上げ", category: "制度",
       })),
     }),
@@ -151,7 +157,7 @@ export const EVENTS = [
       tell: "店長",
       text: "お客様がSNSに上げてくださった投稿が広まって、問い合わせが増えています！",
       effects: [
-        makeEffect({ lever: "demand", value: 80, startMonth: g.month + 1, duration: 6, decay: 0.7, storeId: store.id, source: "口コミの広がり", category: "市場" }),
+        makeEffect({ lever: "demand", value: 80, startMonth: g.month, duration: 6, decay: 0.7, storeId: store.id, source: "口コミの広がり", category: "市場" }),
       ],
     }),
   },
@@ -165,7 +171,7 @@ export const EVENTS = [
       tell: "店長",
       text: "対応が行き届かなかったお客様から、厳しいご意見をいただいてしまいました。少しお客様が減るかもしれません。",
       effects: [
-        makeEffect({ lever: "demand", value: -60, startMonth: g.month + 1, duration: 5, decay: 0.65, storeId: store.id, source: "クレームの影響", category: "人事" }),
+        makeEffect({ lever: "demand", value: -60, startMonth: g.month, duration: 5, decay: 0.65, storeId: store.id, source: "クレームの影響", category: "人事" }),
       ],
     }),
   },
@@ -181,12 +187,13 @@ export const EVENTS = [
       tell: "店長",
       text: "近くのマンションに入居が始まったみたいで、新しいお客様が増えてきました！",
       effects: [
-        makeEffect({ lever: "demand", value: 40, startMonth: g.month + 1, duration: null, storeId: store.id, source: "近隣マンションの竣工", category: "市場" }),
+        makeEffect({ lever: "demand", value: 40, startMonth: g.month, duration: null, storeId: store.id, source: "近隣マンションの竣工", category: "市場" }),
       ],
     }),
   },
   {
     id: "rate_change",
+    scope: "company",   // 特定の店舗の話ではない（画面に店舗名を出さない）
     category: "制度",
     title: "銀行の金利改定",
     cooldown: 18,
@@ -226,15 +233,21 @@ export function rollEvents(g, rate) {
       if (last != null && g.month - last < e.cooldown) return false;
       // 予兆待ちのものは二重に出さない
       if (g.omens?.some(o => o.eventId === e.id)) return false;
+      // 条件を満たす対象店舗が1つもないものは、この時点で除外しておく。
+      // 抽選してから外すと、その月の発火機会が黙って捨てられてしまう。
+      if (e.canFire && !g.stores.some(s => e.canFire(g, s))) return false;
       return true;
     });
     if (pool.length === 0) continue;
 
     const ev = pool[Math.floor(Math.random() * pool.length)];
-    // 対象店舗を選ぶ（会社レベルのイベントは null）
-    const targets = g.stores.filter(s => !ev.canFire || ev.canFire(g, s));
-    if (ev.canFire && targets.length === 0) continue;
-    const store = targets.length > 0 ? targets[Math.floor(Math.random() * targets.length)] : g.stores[0];
+    // 対象店舗を選ぶ。会社レベルのイベントは特定の店に紐づけない。
+    const store = ev.scope === "company"
+      ? null
+      : (() => {
+          const targets = g.stores.filter(s => !ev.canFire || ev.canFire(g, s));
+          return targets[Math.floor(Math.random() * targets.length)] ?? g.stores[0];
+        })();
 
     fired.push({ eventId: ev.id, storeId: store?.id ?? null });
     pressure[cat] = 0;

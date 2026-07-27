@@ -12,7 +12,7 @@ import { man } from "./data";
 const Cell = ({ v, dash, neg, total, bold }) => (
   <td className={
     "px-2 py-1 text-right tabular-nums whitespace-nowrap text-[12px] border-b border-stone-100 " +
-    (total ? "sticky right-0 bg-stone-50 border-l border-stone-300 font-medium " : "") +
+    (total ? "sticky right-0 z-[1] bg-stone-50 border-l border-stone-300 font-medium " : "") +
     (bold ? "font-medium " : "") +
     (neg ? "text-red-600" : "text-stone-700")
   }>
@@ -22,7 +22,7 @@ const Cell = ({ v, dash, neg, total, bold }) => (
 
 const ItemCell = ({ children, bold, gold }) => (
   <td className={
-    "px-2 py-1 text-left whitespace-nowrap text-[12px] sticky left-0 z-10 border-b border-stone-100 min-w-[104px] " +
+    "px-2 py-1 text-left whitespace-nowrap text-[12px] sticky left-0 z-[1] border-b border-stone-100 min-w-[104px] " +
     (gold ? "bg-amber-50 " : "bg-white ") + (bold ? "font-medium text-stone-800" : "text-stone-600")
   }>
     {children}
@@ -57,14 +57,14 @@ export default function SegmentPL({ result, stores }) {
         <table className="w-full border-separate border-spacing-0" style={{ minWidth }}>
           <thead>
             <tr>
-              <th className="px-2 py-1.5 text-left text-[10px] text-stone-400 sticky left-0 bg-white z-10 border-b border-stone-300 font-normal">（単位：万円）</th>
+              <th className="px-2 py-1.5 text-left text-[10px] text-stone-400 sticky left-0 bg-white z-[1] border-b border-stone-300 font-normal">（単位：万円）</th>
               {sr.map(r => (
                 <th key={r.id} className="px-2 py-1.5 text-right text-[10px] text-stone-400 whitespace-nowrap border-b border-stone-300 font-normal">
                   {r.name.replace("サロン・ドゥ・フルール ", "")}
                 </th>
               ))}
               <th className="px-2 py-1.5 text-right text-[10px] text-stone-400 whitespace-nowrap border-b border-stone-300 font-normal">本社</th>
-              <th className="px-2 py-1.5 text-right text-[10px] text-stone-500 whitespace-nowrap sticky right-0 bg-stone-50 border-l border-stone-300 border-b font-normal">全社</th>
+              <th className="px-2 py-1.5 text-right text-[10px] text-stone-500 whitespace-nowrap sticky right-0 z-[1] bg-stone-50 border-l border-stone-300 border-b font-normal">全社</th>
             </tr>
           </thead>
           <tbody>
@@ -73,7 +73,7 @@ export default function SegmentPL({ result, stores }) {
                 <ItemCell bold={row.sub}>{row.label}</ItemCell>
                 {sr.map(r => <Cell key={r.id} v={man(val(r, row))} bold={row.sub} neg={val(r, row) < 0} />)}
                 <Cell dash />
-                <Cell v={man(totalOf(row))} total bold={row.sub} />
+                <Cell v={man(totalOf(row))} total bold={row.sub} neg={totalOf(row) < 0} />
               </tr>
             ))}
 
@@ -86,7 +86,8 @@ export default function SegmentPL({ result, stores }) {
                 </td>
               ))}
               <td className="px-2 py-1 text-right text-[12px] bg-amber-50 border-b border-stone-100 border-t border-stone-300"><span className="text-stone-300">—</span></td>
-              <td className="px-2 py-1 text-right tabular-nums text-[12px] font-bold sticky right-0 bg-amber-50 border-l border-stone-300 border-b border-stone-100 border-t">
+              <td className={"px-2 py-1 text-right tabular-nums text-[12px] font-bold sticky right-0 z-[1] bg-amber-50 border-l border-stone-300 border-b border-stone-100 border-t "
+                + (result.storeOperatingTotal < 0 ? "text-red-600" : "text-stone-800")}>
                 {man(result.storeOperatingTotal)}
               </td>
             </tr>
@@ -96,7 +97,7 @@ export default function SegmentPL({ result, stores }) {
               <ItemCell>本社経費（役員報酬）</ItemCell>
               {sr.map(r => <td key={r.id} className="px-2 py-1 text-right text-[12px] border-b border-stone-100" style={{ borderTop: "3px double #a8a29e" }}><span className="text-stone-300">—</span></td>)}
               <td className="px-2 py-1 text-right tabular-nums text-[12px] text-stone-700 border-b border-stone-100" style={{ borderTop: "3px double #a8a29e" }}>{man(result.hqCost)}</td>
-              <td className="px-2 py-1 text-right tabular-nums text-[12px] font-medium sticky right-0 bg-stone-50 border-l border-stone-300 border-b border-stone-100" style={{ borderTop: "3px double #a8a29e" }}>{man(result.hqCost)}</td>
+              <td className="px-2 py-1 text-right tabular-nums text-[12px] font-medium sticky right-0 z-[1] bg-stone-50 border-l border-stone-300 border-b border-stone-100" style={{ borderTop: "3px double #a8a29e" }}>{man(result.hqCost)}</td>
             </tr>
 
             {[

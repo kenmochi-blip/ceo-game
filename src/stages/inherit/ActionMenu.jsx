@@ -53,6 +53,10 @@ export default function ActionMenu({ g, selectedStore, setSelectedStore, onRun, 
                       )}
                     </div>
                     <div className="text-[11.5px] text-stone-400 mt-0.5">{a.desc}</div>
+                    {/* 効果量・遅延・追加費用の具体的な数字。ここを出さないと勘で選ぶことになる */}
+                    {c.ok && a.detail && (
+                      <div className="text-[11.5px] text-stone-500 mt-1 leading-relaxed">{a.detail(target ?? g.stores[0], g)}</div>
+                    )}
                     {!c.ok && <div className="text-[11px] text-red-500 mt-1">{c.reason}</div>}
                   </button>
                 );

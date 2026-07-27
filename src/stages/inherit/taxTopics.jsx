@@ -31,7 +31,9 @@ export const TAX_TOPICS = [
     answer: () => (
       <>
         損益計算書は、上から順に引き算していくだけです。<b>売上高</b>から<b>売上原価</b>を引くと<b>売上総利益</b>。
-        そこから家賃・人件費・<b>役員報酬</b>などの経費を引くと<b>営業利益</b>。さらに<b>支払利息</b>のような本業以外の費用を引いたものが<b>当期純利益</b>です。
+        そこから家賃・人件費・<b>役員報酬</b>などの経費を引くと<b>営業利益</b>——ここまでが本業の成績です。
+        さらに<b>支払利息</b>のような本業以外の損益を加減すると<b>経常利益</b>。これが<b>平常時の実力</b>を表す、いちばん大事な数字です。
+        最後に、災害や設備の除却のような<b>その期かぎりの出来事</b>（特別損益）を反映したものが<b>当期純利益</b>になります。
         先代最後の1年間の、実際の決算書を見てみましょう。
         <div className="bg-stone-50 rounded-lg p-2 mt-2 border border-stone-200">
           <MoneyRow label="売上高" cur={PRIOR_YEAR_PL.sales} showDiff={false} />
@@ -46,6 +48,8 @@ export const TAX_TOPICS = [
           <div className="border-t border-stone-300 my-1" />
           <MoneyRow label="営業利益" cur={PRIOR_YEAR_PL.operating} bold red={PRIOR_YEAR_PL.operating < 0} showDiff={false} />
           <MoneyRow label="支払利息" cur={PRIOR_YEAR_PL.interest} negative showDiff={false} />
+          <div className="border-t border-stone-300 my-1" />
+          <MoneyRow label="経常利益" cur={PRIOR_YEAR_PL.ordinary} bold red={PRIOR_YEAR_PL.ordinary < 0} showDiff={false} />
           <div className="border-t border-stone-300 my-1" />
           <MoneyRow label="当期純利益" cur={PRIOR_YEAR_PL.netProfit} bold red={PRIOR_YEAR_PL.netProfit < 0} showDiff={false} />
         </div>

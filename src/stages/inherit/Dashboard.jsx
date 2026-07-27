@@ -17,16 +17,27 @@ function UtilBar({ customers, capacity, demand }) {
   const pct = Math.round(util * 100);
   const over = demand > capacity;
   const tone = over ? "bg-red-500" : util < 0.7 ? "bg-amber-500" : "bg-emerald-600";
-  // 需要マーカーの位置（上限を超えている場合は右端に貼りつく）
-  const demandPct = capacity > 0 ? Math.min(100, Math.round((demand / capacity) * 100)) : 0;
+  // 需要が上限を超えた分は、バーの外側にはみ出した帯として描く。
+  // 需要マーカーを min(100%) でバー内に置くと、実客数＝min(需要,上限) なので
+  // 必ずバーの先端と重なってしまい、何の情報も伝えられない。
+  const demandRatio = capacity > 0 ? demand / capacity : 0;
+  const scale = Math.max(1, demandRatio);           // はみ出す分だけ全体を縮めて収める
+  const fillPct = (util / scale) * 100;
+  const demandPct = (demandRatio / scale) * 100;
   return (
     <div className="mt-1.5">
       <div className="relative h-2.5 bg-stone-100 border border-stone-200 rounded-full">
-        <div className={"h-full rounded-full " + tone} style={{ width: `${Math.min(100, pct)}%` }} />
-        <div className="absolute -top-1 w-0.5 h-4 bg-stone-800 rounded" style={{ left: `${demandPct}%` }} />
+        {/* 対応できる上限までの部分 */}
+        <div className={"h-full rounded-full " + tone} style={{ width: `${fillPct}%` }} />
+        {/* 上限を超えた需要＝取りこぼし */}
+        {over && (
+          <div className="absolute top-0 h-full rounded-r-full bg-red-200 border-r border-red-400"
+            style={{ left: `${fillPct}%`, width: `${demandPct - fillPct}%` }} />
+        )}
+        <div className="absolute -top-1 w-0.5 h-4 bg-stone-800 rounded" style={{ left: `${Math.min(99.5, demandPct)}%` }} />
       </div>
       <div className="flex justify-between text-[10px] text-stone-400 tabular-nums mt-1.5">
-        <span>稼働 {pct}%</span>
+        <span>稼働 {pct}%{over && <span className="text-red-500">（需要 {Math.round(demandRatio * 100)}%）</span>}</span>
         <span>客数 {customers} / 上限 {capacity}</span>
       </div>
       {over && (
@@ -58,6 +69,7 @@ const KItem = ({ k, v, d }) => (
 );
 
 function StoreCard({ store, g, last, prev, expanded, onToggle }) {
+  const lastMonth = g.month - 1;
   const now = deriveStore(store, g.effects, g.month);
   const h = healthOf(store, g);
   const sim = calcStoreMonth(store, g.effects, g.month);
@@ -75,11 +87,13 @@ function StoreCard({ store, g, last, prev, expanded, onToggle }) {
             )}
           </span>
           <span className={"text-[12px] tabular-nums " + (op < 0 ? "text-red-600" : "text-emerald-700")}>
-            営業利益 {manYen(op)}
+            {last ? "先月の" : ""}店舗営業利益 {manYen(op)}
           </span>
         </div>
       </button>
 
+      {/* バーは「いまの状態」、下の数字は「先月の結果」。どちらの月の話かを明示する */}
+      <div className="text-[9.5px] text-stone-400 mt-1">いまの状態</div>
       <UtilBar customers={now.customers} capacity={now.capacity} demand={now.demand} />
 
       <div className="flex flex-wrap gap-1 mt-2">
@@ -91,12 +105,12 @@ function StoreCard({ store, g, last, prev, expanded, onToggle }) {
 
       {expanded && (
         <>
-          <div className="text-[9.5px] text-stone-400 tracking-wider mt-3 pt-2 border-t border-dashed border-stone-200 mb-1">結果 ── 起きたこと</div>
+          <div className="text-[9.5px] text-stone-400 tracking-wider mt-3 pt-2 border-t border-dashed border-stone-200 mb-1">{`結果 ── 先月（${lastMonth}ヶ月目）に起きたこと`}</div>
           <div className="grid grid-cols-2 gap-x-3">
             <KItem k="🙋 客数" v={`${last ? last.customers : now.customers}人`} d={last && prev ? dNum(last.customers, prev.customers, "人") : null} />
             <KItem k="📈 売上" v={manYen(last ? last.sales : sim.sales)} d={last && prev ? `${last.sales - prev.sales >= 0 ? "+" : "−"}${manYen(Math.abs(last.sales - prev.sales))}` : null} />
             <KItem k="📊 稼働率" v={`${Math.round((last ? last.utilization : now.customers / now.capacity) * 100)}%`} />
-            <KItem k="💰 営業利益" v={manYen(op)} d={last && prev ? `${last.storeOperating - prev.storeOperating >= 0 ? "+" : "−"}${manYen(Math.abs(last.storeOperating - prev.storeOperating))}` : null} />
+            <KItem k="💰 店舗営業利益" v={manYen(op)} d={last && prev ? `${last.storeOperating - prev.storeOperating >= 0 ? "+" : "−"}${manYen(Math.abs(last.storeOperating - prev.storeOperating))}` : null} />
           </div>
 
           <div className="text-[9.5px] text-stone-400 tracking-wider mt-3 pt-2 border-t border-dashed border-stone-200 mb-1">打ち手 ── いまの設定</div>

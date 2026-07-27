@@ -161,7 +161,9 @@ export default function InheritDemo() {
   const [actionStore, setActionStore] = useState("honten");
   const [actionResult, setActionResult] = useState(null);
   const [inboxIdx, setInboxIdx] = useState(0);
-  const [saveInfo] = useState(() => savedMeta());
+  // マウント時に一度だけ読むと、リスタート後も古い情報が残って
+  // 「つづきから」が押しても何も起きない死んだボタンになる。状態として持ち直す。
+  const [saveInfo, setSaveInfo] = useState(() => savedMeta());
 
   // ── 自動セーブ ──
   useEffect(() => {
@@ -215,16 +217,19 @@ export default function InheritDemo() {
 
   const restart = () => {
     clearSave();
+    setSaveInfo(null);            // 消したセーブへのボタンを残さない
     started.current = false;
     setG(initialGame(g.gender));
     setScreen("title"); setStoreMode(null); setTaxMode("menu"); setTaxTopic(null);
     setStaffQAOpen(false); setStaffDecisionOpen(false); setPromoQAOpen(false); setPromoDecisionOpen(false);
     setReflectStep(0); setReflectAnswer(null); setNoteOpenKey(null); setPlViewMode("month");
+    setPlScope("company"); setActionStore("honten"); setActiveStoreId("honten");
     setExpandedStore(null); setActionResult(null); setInboxIdx(0);
   };
 
   const beginGame = (gender) => {
     started.current = true;
+    setSaveInfo(null);
     setG(initialGame(gender));
     setScreen("intro");
   };
@@ -232,6 +237,7 @@ export default function InheritDemo() {
   const continueGame = () => {
     const saved = loadGame();
     if (saved) { started.current = true; setG(saved); setScreen("hub"); }
+    else setSaveInfo(null);       // 読めないセーブだったらボタンを消す
   };
 
   // ── 第1章の物語イベント ──
@@ -427,7 +433,13 @@ export default function InheritDemo() {
   // ═══════════════════ 今月の出来事（イベント受信箱） ═══════════════════
   if (screen === "events") {
     const item = g.inbox[inboxIdx];
-    if (!item) { routeAfterMonth(g); return null; }
+    // 受信箱が空でこの画面に来た場合の保険。ここで routeAfterMonth を呼ぶと
+    // レンダー中に setState することになるので、ボタンとして出す。
+    if (!item) return (
+      <Shell cash={g.cash} cashLabel={CASH_LABEL} cashDiff={cashDiff} transitioning={transitioning}>
+        <Btn onClick={() => routeAfterMonth(g)}>本社に戻る →</Btn>
+      </Shell>
+    );
     const Avatar = item.who?.startsWith("志村") ? Shimura : item.who?.startsWith("剱持") ? Banker : item.who === "母" ? Mother : Staff;
     return (
       <Shell cash={g.cash} cashLabel={CASH_LABEL} cashDiff={cashDiff} transitioning={transitioning}>
@@ -538,13 +550,16 @@ export default function InheritDemo() {
 
   // ═══════════════════ 店舗 ═══════════════════
   if (screen === "store") {
-    const honten = g.stores[0];
+    // 第1〜2章の物語イベントは本店で起きる。第3章では店舗を選んで見に行ける。
+    const storyMode = storeMode === "baseline" || storeMode === "staffEvent" || storeMode === "promo";
+    const honten = (storyMode ? g.stores[0] : (storeById(g, activeStoreId) ?? g.stores[0]));
     const hontenNow = deriveStore(honten, g.effects, g.month);
     const baselineAskedAll = g.baselineAsked.length === BASELINE_QUESTIONS.length;
     const askedAll = g.staffAsked.length === STAFF_QUESTIONS.length;
     const promoAskedAll = g.promoAsked.length === PROMO_QUESTIONS.length;
-    const lastH = g.history.length ? g.history[g.history.length - 1].storeResults[0] : null;
-    const prevH = g.history.length >= 2 ? g.history[g.history.length - 2].storeResults[0] : null;
+    const findRes = (h) => h?.storeResults?.find(r => r.id === honten.id) ?? null;
+    const lastH = g.history.length ? findRes(g.history[g.history.length - 1]) : null;
+    const prevH = g.history.length >= 2 ? findRes(g.history[g.history.length - 2]) : null;
     const utilization = Math.round((Math.min(hontenNow.demand, hontenNow.capacity) / hontenNow.capacity) * 100);
     const lastUtil = lastH ? Math.round((lastH.customers / lastH.capacity) * 100) : null;
 
@@ -555,9 +570,22 @@ export default function InheritDemo() {
           <span className="text-sm text-stone-500">{g.month}ヶ月目</span>
         </div>
 
+        {/* 第3章では店舗を選んで見に行ける（物語イベント中は本店に固定） */}
+        {!storyMode && g.chapter >= 3 && g.stores.length > 1 && (
+          <div className="flex gap-2 mt-2">
+            {g.stores.map(s => (
+              <button key={s.id} onClick={() => setActiveStoreId(s.id)}
+                className={"px-3 py-1.5 rounded-lg text-[13px] border " +
+                  (s.id === honten.id ? "bg-amber-700 text-white border-amber-700" : "bg-white text-stone-600 border-stone-200")}>
+                {s.name.replace("サロン・ドゥ・フルール ", "")}
+              </button>
+            ))}
+          </div>
+        )}
+
         {lastH && storeMode !== "baseline" && (
           <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200">
-            <div className="text-xs text-stone-500 mb-1">先月（{g.month - 1}ヶ月目）の本店実績<span className="text-stone-400">（）内は前月比</span></div>
+            <div className="text-xs text-stone-500 mb-1">先月（{g.month - 1}ヶ月目）の実績<span className="text-stone-400">（）内は前月比</span></div>
             <StatRow label="客数" val={`${lastH.customers}人`} diff={prevH ? `（${signedNum(lastH.customers - prevH.customers, "人")}）` : ""} />
             <StatRow label="客単価" val={yen(lastH.unitPrice)} diff={prevH ? `（${signedYen(lastH.unitPrice - prevH.unitPrice)}）` : ""} />
             <StatRow label="売上（客数×客単価）" val={yen(lastH.sales)} bold diff={prevH ? `（${signedYen(lastH.sales - prevH.sales)}）` : ""} />
@@ -968,8 +996,11 @@ export default function InheritDemo() {
                 <MoneyRow label="当期純利益" cur={last.netProfit} showDiff={false} />
                 <MoneyRow label="減価償却費（現金は減らない）" cur={last.depreciation} showDiff={false} />
                 <MoneyRow label="銀行への元本返済（PLには出ない）" cur={last.principal} negative red showDiff={false} />
+                {(last.capex ?? 0) > 0 && (
+                  <MoneyRow label="設備投資（費用ではなく資産）" cur={last.capex} negative red showDiff={false} />
+                )}
                 <div className="border-t border-stone-200 my-1" />
-                <MoneyRow label="現金の増減" cur={last.cashChange} bold red={last.cashChange < 0} showDiff={false} />
+                <MoneyRow label="現金の増減" cur={last.cashChange - (last.capex ?? 0)} bold red={last.cashChange - (last.capex ?? 0) < 0} showDiff={false} />
                 <div className="text-[12px] text-stone-500 mt-2 leading-relaxed">
                   銀行への返済のうち「元本」はPL（損益計算書）には出てきません。利息だけが費用として計上されます。
                   だから利益が出ていても、元本の返済の分だけ現金は減っていくんです（逆に減価償却費は、PL上は費用でも現金は減りません）。

@@ -25,6 +25,14 @@ export const ACTION_GROUPS = [
 // 効果に幅を持たせる（業者の触れ込み通りにはならない、を数字で表現する）
 const jitter = (base, spread) => Math.round(base * (1 + (Math.random() * 2 - 1) * spread));
 
+// まだ反映されていない遅延パッチの分を数える（採用の入社待ち、研修の受講中など）
+const pendingPatch = (g, storeId, field) =>
+  (g.delayedPatches ?? [])
+    .filter(d => d.storeId === storeId && d.patch?.[field] != null)
+    .reduce((a, d) => a + d.patch[field], 0);
+const pendingStaff = (g, storeId) => pendingPatch(g, storeId, "staffCount");
+const pendingEdu = (g, storeId) => pendingPatch(g, storeId, "educationLevel");
+
 export const ACTIONS = [
   // ── LEVER 01 客数を増やす ──
   {
@@ -38,8 +46,8 @@ export const ACTIONS = [
     cooldown: 4,
     minChapter: 2,
     effects: (g, s) => [
-      makeEffect({ lever: "demand", value: jitter(90, 0.3), startMonth: g.month + 1, duration: 6, decay: 0.75, storeId: s.id, source: "チラシ・SNS広告" }),
-      makeEffect({ lever: "otherFixed", value: 60000, startMonth: g.month + 1, duration: 6, storeId: s.id, source: "広告費", hidden: true }),
+      makeEffect({ lever: "demand", value: jitter(90, 0.3), startMonth: g.month, duration: 6, decay: 0.75, storeId: s.id, source: "チラシ・SNS広告" }),
+      makeEffect({ lever: "otherFixed", value: 60000, startMonth: g.month, duration: 6, storeId: s.id, source: "広告費", hidden: true }),
     ],
   },
   {
@@ -70,9 +78,9 @@ export const ACTIONS = [
     cooldown: 12,
     minChapter: 2,
     effects: (g, s) => [
-      makeEffect({ lever: "unitPrice", value: Math.round(s.unitPrice * 0.08), startMonth: g.month + 1, duration: null, storeId: s.id, source: "値上げ" }),
+      makeEffect({ lever: "unitPrice", value: Math.round(s.unitPrice * 0.08), startMonth: g.month, duration: null, storeId: s.id, source: "値上げ" }),
       // 需要の落ち幅は実行するまで分からない（−5%〜−20%）
-      makeEffect({ lever: "demand", value: -Math.round(s.baseDemand * (0.05 + Math.random() * 0.15)), startMonth: g.month + 1, duration: null, storeId: s.id, source: "値上げによる客離れ" }),
+      makeEffect({ lever: "demand", value: -Math.round(s.baseDemand * (0.05 + Math.random() * 0.15)), startMonth: g.month, duration: null, storeId: s.id, source: "値上げによる客離れ" }),
     ],
   },
   {
@@ -86,8 +94,8 @@ export const ACTIONS = [
     cooldown: 10,
     minChapter: 2,
     effects: (g, s) => [
-      makeEffect({ lever: "unitPrice", value: jitter(600, 0.2), startMonth: g.month + 1, duration: null, storeId: s.id, source: "店販強化" }),
-      makeEffect({ lever: "cogsRateInternal", value: 0.015, startMonth: g.month + 1, duration: null, storeId: s.id, source: "店販の仕入", hidden: true }),
+      makeEffect({ lever: "unitPrice", value: jitter(600, 0.2), startMonth: g.month, duration: null, storeId: s.id, source: "店販強化" }),
+      makeEffect({ lever: "cogsRateInternal", value: 0.015, startMonth: g.month, duration: null, storeId: s.id, source: "店販の仕入", hidden: true }),
     ],
   },
 
@@ -102,8 +110,15 @@ export const ACTIONS = [
     initialCost: 200000,
     cooldown: 3,
     minChapter: 2,
-    requires: (g, s) => s.staffCount < s.maxStaff,
-    blockedReason: (g, s) => `この店舗で働けるのは${s.maxStaff}人までです。これ以上増やすには店舗を広げるか、新しい店を出す必要があります。`,
+    // 入社待ちの人数も数える。数えないと上限ぎりぎりで何人でも採用でき、
+    // 募集費だけ消えて「1人増えました」という嘘の通知が出る。
+    requires: (g, s) => s.staffCount + pendingStaff(g, s.id) < s.maxStaff,
+    blockedReason: (g, s) => {
+      const pend = pendingStaff(g, s.id);
+      return pend > 0
+        ? `すでに${pend}人の入社が決まっています。この店舗で働けるのは${s.maxStaff}人までです。`
+        : `この店舗で働けるのは${s.maxStaff}人までです。これ以上増やすには、新しい店を出す必要があります。`;
+    },
     delayedPatch: { months: 3, patch: { staffCount: +1 }, note: "スタイリストが1人増えました" },
   },
   {
@@ -116,8 +131,11 @@ export const ACTIONS = [
     initialCost: 250000,
     cooldown: 6,
     minChapter: 2,
-    requires: (g, s) => s.educationLevel < 5,
-    blockedReason: () => "すでに教育レベルは十分に高い状態です。",
+    // 受講中の分も数える（数えないと上限で空振りし、研修費だけ消える）
+    requires: (g, s) => s.educationLevel + pendingEdu(g, s.id) < 5,
+    blockedReason: (g, s) => pendingEdu(g, s.id) > 0
+      ? "いま研修に出ているスタッフがいます。戻ってくるまで待ちましょう。"
+      : "すでに教育レベルは十分に高い状態です。",
     effects: (g, s) => [
       makeEffect({ lever: "serviceHours", value: -0.06, startMonth: g.month + 6, duration: null, storeId: s.id, source: "研修（習熟）" }),
     ],
@@ -131,10 +149,13 @@ export const ACTIONS = [
     detail: () => "接客時間が短くなり、設備の経過年数がリセットされて故障しにくくなります。",
     scope: "store",
     initialCost: 900000,
+    // 設備は費用ではなく資産。現金は出ていくが、PLには減価償却として5年かけて乗る。
+    // 一括で費用にすると、その月だけ極端な赤字になり会計的にも誤りになる。
+    capitalize: true,
     cooldown: 24,
     minChapter: 2,
     effects: (g, s) => [
-      makeEffect({ lever: "serviceHours", value: -0.05, startMonth: g.month + 1, duration: null, storeId: s.id, source: "設備更新" }),
+      makeEffect({ lever: "serviceHours", value: -0.05, startMonth: g.month, duration: null, storeId: s.id, source: "設備更新" }),
     ],
     patch: { equipmentAge: "=0" },
   },
@@ -151,7 +172,7 @@ export const ACTIONS = [
     cooldown: 12,
     minChapter: 2,
     effects: (g, s) => [
-      makeEffect({ lever: "cogsRateInternal", value: -0.015, startMonth: g.month + 1, duration: null, storeId: s.id, source: "仕入先の見直し" }),
+      makeEffect({ lever: "cogsRateInternal", value: -0.015, startMonth: g.month, duration: null, storeId: s.id, source: "仕入先の見直し" }),
     ],
   },
 
@@ -161,13 +182,16 @@ export const ACTIONS = [
     group: "fixed",
     label: "経費を見直す",
     desc: "すぐ効く。ただし削りすぎると現場が荒れる。",
-    detail: (s) => `その他固定費が月${manYen(Math.round(s.otherFixed * 0.15))}減ります。`,
+    detail: (s) => `その他固定費が月${manYen(Math.round(s.otherFixed * 0.15))}減ります。ただし細かなサービスが落ち、お客様が少しずつ離れます。`,
     scope: "store",
     initialCost: 0,
     cooldown: 12,
     minChapter: 2,
     effects: (g, s) => [
-      makeEffect({ lever: "otherFixed", value: -Math.round(s.otherFixed * 0.15), startMonth: g.month + 1, duration: null, storeId: s.id, source: "経費の見直し" }),
+      makeEffect({ lever: "otherFixed", value: -Math.round(s.otherFixed * 0.15), startMonth: g.month, duration: null, storeId: s.id, source: "経費の見直し" }),
+      // desc が謳うデメリットを実際に持たせる。無料・永久・繰り返し可能な
+      // 純粋な利益レバーになっていると、経費削減が万能の正解になってしまう。
+      makeEffect({ lever: "demand", value: -Math.round(s.baseDemand * 0.04), startMonth: g.month, duration: null, storeId: s.id, source: "経費削減によるサービス低下" }),
     ],
   },
 
@@ -183,7 +207,7 @@ export const ACTIONS = [
     cooldown: 6,
     minChapter: 2,
     effects: (g, s) => [
-      makeEffect({ lever: "wagePerStaff", value: Math.round(s.wagePerStaff * 0.06), startMonth: g.month + 1, duration: null, storeId: s.id, source: "昇給" }),
+      makeEffect({ lever: "wagePerStaff", value: Math.round(s.wagePerStaff * 0.06), startMonth: g.month, duration: null, storeId: s.id, source: "昇給" }),
     ],
   },
   {
@@ -197,7 +221,7 @@ export const ACTIONS = [
     cooldown: 8,
     minChapter: 2,
     effects: (g, s) => [
-      makeEffect({ lever: "otherFixed", value: 40000, startMonth: g.month + 1, duration: null, storeId: s.id, source: "待遇改善" }),
+      makeEffect({ lever: "otherFixed", value: 40000, startMonth: g.month, duration: null, storeId: s.id, source: "待遇改善" }),
     ],
     patch: { strainMonths: "=0" },
   },
@@ -211,10 +235,13 @@ export const ACTIONS = [
     initialCost: 0,
     cooldown: 999,
     minChapter: 3,
-    requires: (g) => g.stores.length >= 3,
-    blockedReason: () => "店舗が3つ以上になってから考えましょう。",
+    // 出店の手段がまだ無いため3店舗以上を条件にすると永久に実行できない死に施策になる。
+    // 2店舗から任用できるようにして、本社経費レバーが実際に動くようにする。
+    requires: (g) => g.stores.length >= 2 && !g.areaManager,
+    blockedReason: (g) => g.areaManager ? "すでにエリアマネージャーを置いています。" : "店舗が2つ以上になってから考えましょう。",
+    companyPatch: { areaManager: true },
     effects: (g) => [
-      makeEffect({ lever: "hqOtherFixed", value: 350000, startMonth: g.month + 1, duration: null, source: "エリアマネージャー" }),
+      makeEffect({ lever: "hqOtherFixed", value: 350000, startMonth: g.month, duration: null, source: "エリアマネージャー" }),
     ],
   },
 ];
@@ -231,8 +258,12 @@ export function canRun(action, g, store) {
   if (action.requires && !action.requires(g, store)) {
     return { ok: false, reason: action.blockedReason ? action.blockedReason(g, store) : "いまは実行できません。" };
   }
-  if ((action.initialCost ?? 0) > g.cash) {
-    return { ok: false, reason: `現金が足りません（必要 ${manYen(action.initialCost)}）。` };
+  // 現金は月末にまとめて出ていくので、今月すでに約束した支出も差し引いて判定する。
+  // 現在残高だけで見ると、1ヶ月に何件でも打てて残高を超過できてしまう。
+  const committed = (g.pendingActionCost ?? 0) + (g.pendingCapex ?? []).reduce((a, c) => a + c.amount, 0);
+  const available = g.cash - committed;
+  if ((action.initialCost ?? 0) > available) {
+    return { ok: false, reason: `現金が足りません（必要 ${manYen(action.initialCost)}／使える残り ${manYen(Math.max(0, available))}）。` };
   }
   return { ok: true };
 }
