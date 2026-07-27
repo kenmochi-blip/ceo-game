@@ -42,6 +42,11 @@ function resolveMode() {
 export const MODE = resolveMode();
 export const IS_DEMO = MODE.key === "demo";
 
+// ブラウザのタブに出すタイトル。デモと本編で取り違えないよう、モードから決める。
+export const APP_TITLE = IS_DEMO
+  ? "継承 ― 会計シミュレーション（体験版）"
+  : "継承 ― 会計シミュレーション";
+
 // ── 卒業条件（第2章 → 第3章）──
 // 「失敗しても卒業できる」ことを優先する。成否ではなく「一通り経験したか」で判定する。
 export const GRADUATION = {

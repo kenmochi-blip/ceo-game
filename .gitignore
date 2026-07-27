@@ -1,5 +1,7 @@
 node_modules
 dist
+dist-demo
+dist-full
 dist-ssr
 *.local
 .DS_Store

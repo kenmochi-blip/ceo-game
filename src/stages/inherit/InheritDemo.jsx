@@ -8,7 +8,7 @@ import {
   deriveStore, calcStoreMonth, TREATMENT, PROMO, DEMO_MONTHS,
 } from "./data";
 import { makeEffect } from "./effects";
-import { MODE, IS_DEMO, CHAPTER_LABEL } from "./config";
+import { MODE, IS_DEMO, CHAPTER_LABEL, APP_TITLE } from "./config";
 import {
   initialGame, advance, derived, runAction, graduationCheck, storeById, decisionCount,
 } from "./game";
@@ -167,6 +167,8 @@ export default function InheritDemo() {
   useEffect(() => {
     if (started.current) saveGame(g);
   }, [g]);
+
+  useEffect(() => { document.title = APP_TITLE; }, []);
 
   const d = derived(g);
   const prevCash = g.history.length === 0 ? null : g.history.length === 1 ? START_CASH : g.history[g.history.length - 2].cash;
