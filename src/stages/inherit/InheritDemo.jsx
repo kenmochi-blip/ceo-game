@@ -441,7 +441,7 @@ export default function InheritDemo() {
                 <TalkBox name="チーフスタイリスト" avatar={<Staff size={52} />}>
                   これで一通り、お店の状況が分かりましたね。
                 </TalkBox>
-                <button onClick={() => { setSeenBaseline(true); setBaselineMonth(month); }} className="text-[13px] text-amber-700 mt-2">わかった →</button>
+                <button onClick={() => { setSeenBaseline(true); setBaselineMonth(month); }} className="text-[13px] text-amber-700 mt-2 block ml-auto">わかった →</button>
               </>
             )}
           </>
@@ -455,7 +455,7 @@ export default function InheritDemo() {
                   {staffEventChoice === "hire" && <>スタッフを増やしたので、来られた<b>{lastHonten.customers}人</b>全員にトリートメントを提供でき、客単価は<b>{yen(lastHonten.unitPrice)}</b>に。本店の売上は<b>{yen(lastHonten.sales)}</b>になりました（人件費も増えたので、詳しくは決算書で）。</>}
                   {staffEventChoice === "reckless" && <>客単価は<b>{yen(lastHonten.unitPrice)}</b>に上がったのですが、接客時間が延びて対応できる上限が<b>{lastHonten.capacity}人</b>に下がり、来店希望{CURRENT_CUSTOMERS}人のうち<b className="text-red-600">{lastHonten.customers}人しか対応できませんでした</b>（{CURRENT_CUSTOMERS - lastHonten.customers}人を取りこぼし）。増員していれば全員に提供できました。</>}
                 </TalkBox>
-                <button onClick={() => setStaffEventResultPending(false)} className="text-[13px] text-amber-700 mt-2 mb-1">わかった →</button>
+                <button onClick={() => setStaffEventResultPending(false)} className="text-[13px] text-amber-700 mt-2 mb-1 block ml-auto">わかった →</button>
               </>
             )}
             {promoResultPending && month > promoMonth && lastHonten && (
@@ -463,7 +463,7 @@ export default function InheritDemo() {
                 <TalkBox name="チーフスタイリスト" avatar={<Staff size={52} />}>
                   {promoChoice === "run" && <>クーポンで問い合わせは増えたのですが、業者さんの言う「新規+{PROMO.claimedNewCustomers}人」は今の上限<b>{lastHonten.capacity}人</b>では捌ききれず頭打ちで、実際に対応できたのは<b>{lastHonten.customers}人</b>でした。配布コストもかかっています。予測を鵜呑みにせず、まず上限（対応可能人数）と照らし合わせるべきでしたね。</>}
                 </TalkBox>
-                <button onClick={() => setPromoResultPending(false)} className="text-[13px] text-amber-700 mt-2 mb-1">わかった →</button>
+                <button onClick={() => setPromoResultPending(false)} className="text-[13px] text-amber-700 mt-2 mb-1 block ml-auto">わかった →</button>
               </>
             )}
             <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200 text-sm text-stone-600">
@@ -484,7 +484,7 @@ export default function InheritDemo() {
             {staffEventChoice === null && !staffQAOpen && !staffDecisionOpen && (
               <div className="flex flex-col gap-2 mt-2">
                 <Btn onClick={() => setStaffDecisionOpen(true)}>やってみる →</Btn>
-                <button onClick={() => setStaffQAOpen(true)} className="text-[13px] text-amber-700 mt-1">質問する</button>
+                <button onClick={() => setStaffQAOpen(true)} className="text-[13px] text-amber-700 mt-1 block ml-auto">質問する</button>
               </div>
             )}
 
@@ -498,7 +498,7 @@ export default function InheritDemo() {
                           className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">{q.q}</button>
                   ))}
                 </div>
-                <button onClick={() => setStaffQAOpen(false)} className="text-[13px] text-amber-700 mt-2">← 戻る</button>
+                <button onClick={() => setStaffQAOpen(false)} className="text-[13px] text-amber-700 mt-2 block ml-auto">← 戻る</button>
               </>
             )}
 
@@ -557,7 +557,7 @@ export default function InheritDemo() {
                     今回は見送る
                   </button>
                 </div>
-                <button onClick={() => setStaffDecisionOpen(false)} className="text-[13px] text-amber-700 mt-2">← 戻る</button>
+                <button onClick={() => setStaffDecisionOpen(false)} className="text-[13px] text-amber-700 mt-2 block ml-auto">← 戻る</button>
               </>
             )}
 
@@ -568,7 +568,7 @@ export default function InheritDemo() {
                     結果はまた来月、詳しく教えますね。
                   </div>
                 )}
-                <button onClick={() => setSeenStaffEvent(true)} className="text-[13px] text-amber-700 mt-2">わかった →</button>
+                <button onClick={() => setSeenStaffEvent(true)} className="text-[13px] text-amber-700 mt-2 block ml-auto">わかった →</button>
               </>
             )}
           </>
@@ -585,7 +585,7 @@ export default function InheritDemo() {
             {promoChoice === null && !promoQAOpen && !promoDecisionOpen && (
               <div className="flex flex-col gap-2 mt-2">
                 <Btn onClick={() => setPromoDecisionOpen(true)}>やってみる →</Btn>
-                <button onClick={() => setPromoQAOpen(true)} className="text-[13px] text-amber-700 mt-1">質問する</button>
+                <button onClick={() => setPromoQAOpen(true)} className="text-[13px] text-amber-700 mt-1 block ml-auto">質問する</button>
               </div>
             )}
 
@@ -599,7 +599,7 @@ export default function InheritDemo() {
                           className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">{q.q}</button>
                   ))}
                 </div>
-                <button onClick={() => setPromoQAOpen(false)} className="text-[13px] text-amber-700 mt-2">← 戻る</button>
+                <button onClick={() => setPromoQAOpen(false)} className="text-[13px] text-amber-700 mt-2 block ml-auto">← 戻る</button>
               </>
             )}
 
@@ -631,7 +631,7 @@ export default function InheritDemo() {
                     今回は見送る
                   </button>
                 </div>
-                <button onClick={() => setPromoDecisionOpen(false)} className="text-[13px] text-amber-700 mt-2">← 戻る</button>
+                <button onClick={() => setPromoDecisionOpen(false)} className="text-[13px] text-amber-700 mt-2 block ml-auto">← 戻る</button>
               </>
             )}
 
@@ -642,7 +642,7 @@ export default function InheritDemo() {
                     結果はまた来月、詳しく教えますね。
                   </div>
                 )}
-                <button onClick={() => setSeenPromo(true)} className="text-[13px] text-amber-700 mt-2">わかった →</button>
+                <button onClick={() => setSeenPromo(true)} className="text-[13px] text-amber-700 mt-2 block ml-auto">わかった →</button>
               </>
             )}
           </>
@@ -887,7 +887,7 @@ export default function InheritDemo() {
                 ? selected.answer({ totalAssets, liabilities: loanBalance, equity: totalEquity, ratio: equityRatio, lastResult })
                 : selected.answer}
             </TalkBox>
-            <button onClick={() => setTaxTopic(null)} className="text-[13px] text-amber-700 mt-2">他の質問をする</button>
+            <button onClick={() => setTaxTopic(null)} className="text-[13px] text-amber-700 mt-2 block ml-auto">他の質問をする</button>
           </>
         )}
 
