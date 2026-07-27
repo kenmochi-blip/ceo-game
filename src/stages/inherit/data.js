@@ -11,6 +11,7 @@
 
 export const COMPANY_NAME = "株式会社フルール";
 export const STORE_NAME = "サロン・ドゥ・フルール 本店";
+export const BANK_NAME = "さくら信用金庫";
 
 // ── 会社レベルの定数 ──
 export const START_CASH = 1800000;      // 引き継いだ時点の会社の現預金

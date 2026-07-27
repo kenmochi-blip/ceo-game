@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  COMPANY_NAME, STORE_NAME, START_CASH, LOAN_START, ANNUAL_RATE,
+  COMPANY_NAME, STORE_NAME, BANK_NAME, START_CASH, LOAN_START, ANNUAL_RATE,
   PRINCIPAL_PAYMENT, DRAW_DEFAULT, DRAW_MIN, DRAW_MAX, DRAW_STEP,
   DEMO_MONTHS, EQUITY_RATIO_TARGET, EQUITY_STREAK_TARGET, yen, manYen, calcMonth,
   STAFF_COUNT, SERVICE_HOURS_BASE, CURRENT_CUSTOMERS, AVG_TICKET,
@@ -960,20 +960,23 @@ export default function InheritDemo() {
   // ===== 銀行の初回訪問（母との引き継ぎ直後・スクリプトイベント） =====
   if (screen === "bankFirstVisit") return (
     <Shell cash={cash} cashLabel={CASH_LABEL} cashDiff={cashDiff} transitioning={transitioning}>
-      <div className="text-center pt-6"><Banker size={80} /></div>
-      <TalkBox name="剱持（銀行担当者）" avatar={<Banker size={52} />}>
-        この度は、突然のことで……心よりお悔やみ申し上げます。
+      <div className="text-center pt-6"><Banker size={80} mood="stern" /></div>
+      <TalkBox name="剱持（銀行担当者）" avatar={<Banker size={52} mood="stern" />}>
+        初めまして。{BANK_NAME}の剱持と申します。
       </TalkBox>
-      <TalkBox name="剱持（銀行担当者）" avatar={<Banker size={52} />}>
-        お忙しいところ恐縮ですが、引き継ぎのご挨拶と、融資の状況だけ確認させてください。
+      <TalkBox name="剱持（銀行担当者）" avatar={<Banker size={52} mood="stern" />}>
+        この度は、突然のことで……心よりお悔やみ申し上げます。先代とは長いお付き合いでしたが、{gender === "daughter" ? "娘さん" : "息子さん"}のことはまだ何も存じ上げません。
+      </TalkBox>
+      <TalkBox name="剱持（銀行担当者）" avatar={<Banker size={52} mood="stern" />}>
+        失礼を承知で申し上げますが、正直まだ、経営者としてどんな方かは分かりかねています。まずは引き継ぎのご挨拶と、融資の状況だけ確認させてください。
       </TalkBox>
       <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200">
         <Row label="借入残高" val={yen(loanBalance)} bold />
         <Row label="金利（年率）" val={(ANNUAL_RATE * 100).toFixed(1) + "%"} />
         <Row label="毎月の元本返済額" val={yen(PRINCIPAL_PAYMENT)} />
       </div>
-      <TalkBox name="剱持（銀行担当者）" avatar={<Banker size={52} />}>
-        毎月の元本と利息のお支払い、よろしくお願いします。それでは、また{DEMO_MONTHS}ヶ月後にご挨拶に伺いますね。
+      <TalkBox name="剱持（銀行担当者）" avatar={<Banker size={52} mood="stern" />}>
+        毎月の元本と利息のお支払い、よろしくお願いします。数字をきちんと見ながら経営していただけるか、しばらく様子を見させていただきますね。それでは、また{DEMO_MONTHS}ヶ月後にご挨拶に伺います。
       </TalkBox>
       <Btn onClick={() => setScreen("hub")}>経営を始める →</Btn>
     </Shell>
