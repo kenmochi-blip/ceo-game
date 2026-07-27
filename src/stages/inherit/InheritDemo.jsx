@@ -117,6 +117,9 @@ export default function InheritDemo() {
   const totalAssets = cash + fixedAssetsBook;
   const totalEquity = CAPITAL_STOCK + retainedEarnings;
   const equityRatio = totalAssets > 0 ? (totalEquity / totalAssets) * 100 : 0;
+  // 現預金バーの前月比（引き継ぎ直後＝実績ゼロの間は表示しない）
+  const prevCash = history.length === 0 ? null : history.length === 1 ? START_CASH : history[history.length - 2].cash;
+  const cashDiff = prevCash === null ? null : cash - prevCash;
 
   const goStore = () => {
     // 施策の振り返り（答え合わせ）は志村さんの事務所で行うので、お店では新しい提案の有無だけで決める
@@ -333,7 +336,7 @@ export default function InheritDemo() {
 
   // ===== ハブ（本社） =====
   if (screen === "hub") return (
-    <Shell cash={cash} cashLabel={CASH_LABEL} transitioning={transitioning}>
+    <Shell cash={cash} cashLabel={CASH_LABEL} cashDiff={cashDiff} transitioning={transitioning}>
       <div className="flex items-center justify-between pt-1">
         <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-md">本社</span>
         <span className="text-sm text-stone-500">{month}ヶ月目</span>
@@ -374,7 +377,7 @@ export default function InheritDemo() {
     const prevHonten = history.length >= 2 ? history[history.length - 2].storeResults[0] : null; // 前月比の比較対象
     const utilization = lastHonten ? Math.round((lastHonten.customers / hontenNow.capacity) * 100) : null;
     return (
-      <Shell cash={cash} cashLabel={CASH_LABEL} transitioning={transitioning}>
+      <Shell cash={cash} cashLabel={CASH_LABEL} cashDiff={cashDiff} transitioning={transitioning}>
         <div className="flex items-center justify-between pt-1">
           <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-md">{honten.name}</span>
           <span className="text-sm text-stone-500">{month}ヶ月目</span>
@@ -581,7 +584,7 @@ export default function InheritDemo() {
     const promoReflectionPending = promoResultPending && month > promoMonth && lastHonten;
 
     if (taxMode === "menu") return (
-      <Shell cash={cash} cashLabel={CASH_LABEL} transitioning={transitioning}>
+      <Shell cash={cash} cashLabel={CASH_LABEL} cashDiff={cashDiff} transitioning={transitioning}>
         <div className="flex items-center justify-between pt-1">
           <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-md">志村公認会計士・税理士事務所</span>
           <span className="text-sm text-stone-500">{month}ヶ月目</span>
@@ -624,7 +627,7 @@ export default function InheritDemo() {
       // 「もしこの報酬にしたら」の来月シミュレーション（現在のstoresで試算）
       const sim = calcMonth(loanBalance, draw, stores);
       return (
-        <Shell cash={cash} cashLabel={CASH_LABEL} transitioning={transitioning}>
+        <Shell cash={cash} cashLabel={CASH_LABEL} cashDiff={cashDiff} transitioning={transitioning}>
           <div className="flex items-center justify-between pt-1">
             <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-md">役員報酬の見直し</span>
             <span className="text-sm text-stone-500">{month}ヶ月目</span>
@@ -673,7 +676,7 @@ export default function InheritDemo() {
       const plPrev = (field) => plViewMode === "month" ? (prev ? prev[field] : null) : null;
       const showDiff = plViewMode === "month";
       return (
-        <Shell cash={cash} cashLabel={CASH_LABEL} transitioning={transitioning}>
+        <Shell cash={cash} cashLabel={CASH_LABEL} cashDiff={cashDiff} transitioning={transitioning}>
           <div className="flex items-center justify-between pt-1">
             <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-md">決算書</span>
             <span className="text-sm text-stone-500">{month}ヶ月目</span>
@@ -787,7 +790,7 @@ export default function InheritDemo() {
     };
 
     return (
-      <Shell cash={cash} cashLabel={CASH_LABEL} transitioning={transitioning}>
+      <Shell cash={cash} cashLabel={CASH_LABEL} cashDiff={cashDiff} transitioning={transitioning}>
         <div className="flex items-center justify-between pt-1">
           <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-md">志村さんに相談</span>
           <span className="text-sm text-stone-500">今月あと{Math.max(0, READS_PER_MONTH - readThisMonth)}件</span>
@@ -851,7 +854,7 @@ export default function InheritDemo() {
     const toggle = (key) => setNoteOpenKey(k => (k === key ? null : key));
 
     return (
-      <Shell cash={cash} cashLabel={CASH_LABEL} transitioning={transitioning}>
+      <Shell cash={cash} cashLabel={CASH_LABEL} cashDiff={cashDiff} transitioning={transitioning}>
         <div className="flex items-center justify-between pt-1">
           <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-md">ノート</span>
           <span className="text-sm text-stone-500">{month}ヶ月目</span>
@@ -941,7 +944,7 @@ export default function InheritDemo() {
 
   // ===== 母に相談 =====
   if (screen === "mother") return (
-    <Shell cash={cash} cashLabel={CASH_LABEL} transitioning={transitioning}>
+    <Shell cash={cash} cashLabel={CASH_LABEL} cashDiff={cashDiff} transitioning={transitioning}>
       <div className="text-center pt-4"><Mother size={80} /></div>
       <TalkBox name="母" avatar={<Mother size={52} />}>{motherMessage()}</TalkBox>
       <Btn onClick={() => setScreen("hub")}>← 本社に戻る</Btn>
@@ -950,7 +953,7 @@ export default function InheritDemo() {
 
   // ===== 銀行の初回訪問（母との引き継ぎ直後・スクリプトイベント） =====
   if (screen === "bankFirstVisit") return (
-    <Shell cash={cash} cashLabel={CASH_LABEL} transitioning={transitioning}>
+    <Shell cash={cash} cashLabel={CASH_LABEL} cashDiff={cashDiff} transitioning={transitioning}>
       <div className="text-center pt-6"><Banker size={80} /></div>
       <TalkBox name="剱持（銀行担当者）" avatar={<Banker size={52} />}>
         この度は、突然のことで……心よりお悔やみ申し上げます。
@@ -972,7 +975,7 @@ export default function InheritDemo() {
 
   // ===== 銀行からの融資の打診（自己資本比率の目標を一定期間維持した時） =====
   if (screen === "bankFinancingOffer") return (
-    <Shell cash={cash} cashLabel={CASH_LABEL} transitioning={transitioning}>
+    <Shell cash={cash} cashLabel={CASH_LABEL} cashDiff={cashDiff} transitioning={transitioning}>
       <div className="text-center pt-6"><Banker size={80} /></div>
       <TalkBox name="剱持（銀行担当者）" avatar={<Banker size={52} />}>
         剱持です。実は数字を拝見していてご相談が。
