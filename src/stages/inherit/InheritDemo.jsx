@@ -951,7 +951,7 @@ export default function InheritDemo() {
           <>
             <TalkBox name="志村（公認会計士・税理士）" avatar={<Shimura size={52} />}>
               {typeof selected.answer === "function"
-                ? selected.answer({ totalAssets, liabilities: loanBalance, equity: totalEquity, ratio: equityRatio, lastResult })
+                ? selected.answer({ totalAssets, liabilities: loanBalance, equity: totalEquity, ratio: equityRatio, lastResult, honten: deriveStore(stores[0]), seenBaseline })
                 : selected.answer}
             </TalkBox>
             <button onClick={() => setTaxTopic(null)} className="text-[13px] text-amber-700 mt-2 block ml-auto">他の質問をする</button>
@@ -1048,7 +1048,7 @@ export default function InheritDemo() {
                   {noteOpenKey === t.key && (
                     <div className="text-sm text-stone-600 leading-relaxed pb-2 pl-1">
                       {typeof t.answer === "function"
-                        ? t.answer({ totalAssets, liabilities: loanBalance, equity: totalEquity, ratio: equityRatio, lastResult })
+                        ? t.answer({ totalAssets, liabilities: loanBalance, equity: totalEquity, ratio: equityRatio, lastResult, honten: deriveStore(stores[0]), seenBaseline })
                         : t.answer}
                     </div>
                   )}

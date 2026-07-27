@@ -1,6 +1,7 @@
 import BSDiagram from "./BSDiagram";
 import PLDiagram from "./PLDiagram";
 import MoneyRow from "./MoneyRow";
+import Row from "../../components/ui/Row";
 import {
   PRIOR_YEAR_PL, START_CASH, LOAN_START, FIXED_ASSETS, CAPITAL_STOCK, RETAINED_EARNINGS_INIT,
   EQUITY_RATIO_TARGET, EQUITY_STREAK_TARGET, manYen, yen,
@@ -128,6 +129,34 @@ export const TAX_TOPICS = [
     label: "役員報酬と利益の関係について教えてください",
     answer: <>会社になると、社長の取り分は「役員報酬」という<b>会社の経費</b>になります。個人事業主の頃の生活費と違って、
       決算書の利益にそのまま影響するんです。役員報酬を高くとりすぎると、会社としては赤字になってしまうこともあります。</>,
+  },
+  {
+    key: "capacity_factor",
+    label: "お店の客数や売上って、そもそもどう決まるんですか？",
+    answer: ({ honten, seenBaseline }) => (
+      <>
+        売上は難しく分解しなくても、実は<b>客数 × 客単価</b>だけです。
+        ただし客数には上限があります。来たいと思ってくださるお客様の数（<b>潜在需要</b>）がどれだけ多くても、
+        お店が対応できる人数（<b>対応可能人数の上限</b>）を超えることはできません。
+        上限は「スタッフ数 × 1日の営業時間 × 営業日数 ÷ 一人あたりの接客時間」で決まります。
+        {seenBaseline ? (
+          <>
+            今の本店だと、こんな数字になっています。
+            <div className="bg-stone-50 rounded-lg p-2 mt-2 border border-stone-200">
+              <Row label="対応可能人数（上限）" val={`${honten.capacity}人/月`} />
+              <Row label="潜在需要" val={`${honten.demand}人/月`} />
+              <Row label="実際の客数 ＝ min(需要, 上限)" val={`${honten.customers}人/月`} bold />
+              <Row label="客単価" val={yen(honten.unitPrice)} />
+              <div className="border-t border-stone-300 my-1" />
+              <Row label="売上 ＝ 客数 × 客単価" val={yen(honten.customers * honten.unitPrice)} bold />
+            </div>
+          </>
+        ) : (
+          <>まだ本店の状況を詳しく聞けていないようですね。一度お店に顔を出して、状況を聞いてきてください。</>
+        )}
+        新しい施策を検討するときは、効果ばかりに気を取られず、この<b>上限を超えないか</b>を先に確認するのが大事です。
+      </>
+    ),
   },
   {
     key: "new_service_check",
