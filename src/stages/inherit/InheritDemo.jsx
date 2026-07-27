@@ -85,7 +85,6 @@ export default function InheritDemo() {
   const [staffAsked, setStaffAsked] = useState([]);
   const [staffQAOpen, setStaffQAOpen] = useState(false);
   const [staffDecisionOpen, setStaffDecisionOpen] = useState(false);
-  const [staffPredict, setStaffPredict] = useState(null); // ⑤ 予想（"enough"/"short"）してから答え合わせ
   const [staffEventMonth, setStaffEventMonth] = useState(null);
   const [staffEventResultPending, setStaffEventResultPending] = useState(false);
   const [seenBaseline, setSeenBaseline] = useState(false);
@@ -120,10 +119,8 @@ export default function InheritDemo() {
   const equityRatio = totalAssets > 0 ? (totalEquity / totalAssets) * 100 : 0;
 
   const goStore = () => {
-    // 保留中の結果報告（前のイベントの答え合わせ）を、新しい提案より必ず先に見せる
+    // 施策の振り返り（答え合わせ）は志村さんの事務所で行うので、お店では新しい提案の有無だけで決める
     if (!seenBaseline) setStoreMode("baseline");
-    else if (staffEventResultPending && month > staffEventMonth) setStoreMode("recap");
-    else if (promoResultPending && month > promoMonth) setStoreMode("recap");
     else if (!seenStaffEvent && month > baselineMonth) setStoreMode("staffEvent");
     else if (!seenPromo && seenStaffEvent && month > staffEventMonth) setStoreMode("promo");
     else setStoreMode("recap");
@@ -185,7 +182,7 @@ export default function InheritDemo() {
     setStores(makeStores()); setLastStoreResults(null);
     setStoreMode(null);
     setSeenStaffEvent(false); setStaffEventChoice(null); setStaffAsked([]);
-    setStaffQAOpen(false); setStaffDecisionOpen(false); setStaffPredict(null);
+    setStaffQAOpen(false); setStaffDecisionOpen(false);
     setStaffEventMonth(null); setStaffEventResultPending(false);
     setSeenPromo(false); setPromoChoice(null); setPromoAsked([]);
     setPromoQAOpen(false); setPromoDecisionOpen(false); setPromoMonth(null); setPromoResultPending(false);
@@ -270,12 +267,8 @@ export default function InheritDemo() {
       <div className="text-center pt-4"><Mother size={80} mood="worried" /></div>
       <TalkBox name="母" avatar={<Mother size={52} />}>
         あなたに継いでもらうしかないの。お父さんも、まさかこんなに急だなんて思ってなかったでしょうけど……。
-        会社のお金のことは、私もよく分からなくて。志村さんに相談しながら、やっていくしかないわね。
+        会社のお金のことは、私もよく分からなくて。銀行からの借入もいくらかあるとは聞いているんだけど、詳しいことは私には……。志村さんに相談しながら、やっていくしかないわね。
       </TalkBox>
-      <div className="bg-stone-50 rounded-xl p-3 mt-3 border border-stone-200">
-        <Row label="会社の現預金" val={yen(START_CASH)} bold />
-        <Row label="銀行からの借入残高" val={yen(LOAN_START)} red />
-      </div>
       <TalkBox name="母" avatar={<Mother size={52} />}>
         あなたの役員報酬は、とりあえず今は父の代の水準のままにしてあるわ。会社の経費になる話だから、あとで志村さんと相談しながら見直していきましょう。
       </TalkBox>
@@ -350,12 +343,14 @@ export default function InheritDemo() {
       <div className="flex flex-col gap-2 mt-3">
         <LocationCard icon="🏠" title={STORE_NAME} subtitle="現場の様子を見る" onClick={goStore}
           muted={!(!seenBaseline ||
-            (staffEventResultPending && month > staffEventMonth) ||
-            (promoResultPending && month > promoMonth) ||
             (!seenStaffEvent && month > baselineMonth) ||
             (!seenPromo && seenStaffEvent && month > staffEventMonth))} />
         <LocationCard icon="📋" title="志村公認会計士・税理士事務所" subtitle="決算書を見る・経営の話を相談する" onClick={goTax}
-          muted={lessonsRead.length >= TAX_TOPICS.length || readThisMonth >= READS_PER_MONTH} />
+          muted={
+            !(staffEventResultPending && month > staffEventMonth) &&
+            !(promoResultPending && month > promoMonth) &&
+            (lessonsRead.length >= TAX_TOPICS.length || readThisMonth >= READS_PER_MONTH)
+          } />
         <LocationCard icon="👩" title="母に相談する" subtitle="困ったときのヒント" onClick={() => setScreen("mother")} />
         <LocationCard icon="📔" title="ノートを見返す" subtitle="これまで分かったことを振り返る" onClick={() => { setNoteOpenKey(null); setScreen("notebook"); }} />
       </div>
@@ -375,10 +370,6 @@ export default function InheritDemo() {
     const baselineAskedAll = baselineAsked.length === BASELINE_QUESTIONS.length;
     const askedAll = staffAsked.length === STAFF_QUESTIONS.length;
     const promoAskedAll = promoAsked.length === PROMO_QUESTIONS.length;
-    // トリートメント検討時の因数分解（素の本店に対して）
-    const treatmentHours = SERVICE_HOURS_BASE + TREATMENT.serviceHoursDelta;
-    const treatmentCapacity = capacityOf(honten.staffCount, treatmentHours, honten.hoursPerDay, honten.daysPerMonth);
-    const treatmentCapacityWithHire = capacityOf(honten.staffCount + 1, treatmentHours, honten.hoursPerDay, honten.daysPerMonth);
     const lastHonten = lastStoreResults ? lastStoreResults[0] : null;
     const prevHonten = history.length >= 2 ? history[history.length - 2].storeResults[0] : null; // 前月比の比較対象
     const utilization = lastHonten ? Math.round((lastHonten.customers / hontenNow.capacity) * 100) : null;
@@ -439,28 +430,9 @@ export default function InheritDemo() {
         )}
 
         {storeMode === "recap" && (
-          <>
-            {staffEventResultPending && month > staffEventMonth && lastHonten && (
-              <>
-                <TalkBox name="チーフスタイリスト" avatar={<Staff size={52} mood={staffEventChoice === "reckless" ? "worried" : "normal"} />}>
-                  {staffEventChoice === "hire" && <>スタッフを増やしたので、来られた<b>{lastHonten.customers}人</b>全員にトリートメントを提供でき、客単価は<b>{yen(lastHonten.unitPrice)}</b>に。本店の売上は<b>{yen(lastHonten.sales)}</b>になりました（人件費も増えたので、詳しくは決算書で）。</>}
-                  {staffEventChoice === "reckless" && <>客単価は<b>{yen(lastHonten.unitPrice)}</b>に上がったのですが、接客時間が延びて対応できる上限が<b>{lastHonten.capacity}人</b>に下がり、来店希望{CURRENT_CUSTOMERS}人のうち<b className="text-red-600">{lastHonten.customers}人しか対応できませんでした</b>（{CURRENT_CUSTOMERS - lastHonten.customers}人を取りこぼし）。増員していれば全員に提供できました。</>}
-                </TalkBox>
-                <button onClick={() => setStaffEventResultPending(false)} className="text-[13px] text-amber-700 mt-2 mb-1 block ml-auto">わかった →</button>
-              </>
-            )}
-            {promoResultPending && month > promoMonth && lastHonten && (
-              <>
-                <TalkBox name="チーフスタイリスト" avatar={<Staff size={52} />}>
-                  {promoChoice === "run" && <>クーポンで問い合わせは増えたのですが、業者さんの言う「新規+{PROMO.claimedNewCustomers}人」は今の上限<b>{lastHonten.capacity}人</b>では捌ききれず頭打ちで、実際に対応できたのは<b>{lastHonten.customers}人</b>でした。配布コストもかかっています。予測を鵜呑みにせず、まず上限（対応可能人数）と照らし合わせるべきでしたね。</>}
-                </TalkBox>
-                <button onClick={() => setPromoResultPending(false)} className="text-[13px] text-amber-700 mt-2 mb-1 block ml-auto">わかった →</button>
-              </>
-            )}
-            <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200 text-sm text-stone-600">
-              特に変わったことはなく、スタッフたちが元気にお店を切り盛りしています。損益など詳しい数字は志村さんの事務所へ。
-            </div>
-          </>
+          <div className="bg-white rounded-xl p-3 mt-2 border border-stone-200 text-sm text-stone-600">
+            特に変わったことはなく、スタッフたちが元気にお店を切り盛りしています。損益など詳しい数字は志村さんの事務所へ。
+          </div>
         )}
 
         {storeMode === "staffEvent" && (
@@ -500,44 +472,11 @@ export default function InheritDemo() {
                     まだ詳しく聞いていないので、判断材料が少ない状態です。このまま決めることもできますが、先に「質問する」で状況を聞いておくと安心です。
                   </div>
                 )}
-
-                {/* ⑤ 先に自分で予想 → 答え合わせ（因数分解を自分の頭で通す） */}
-                {askedAll && staffPredict === null && (
-                  <div className="bg-amber-50 rounded-xl p-3 mt-2 border border-amber-200 text-[13px] text-stone-700 leading-relaxed">
-                    <div className="font-medium mb-1">まず予想してみましょう</div>
-                    接客時間が{SERVICE_HOURS_BASE}→{treatmentHours.toFixed(1)}時間に伸びると、<b>増員せずに</b>今のお客様（月{CURRENT_CUSTOMERS}人）全員に対応できると思いますか？
-                    <div className="flex flex-col gap-2 mt-2">
-                      <button onClick={() => setStaffPredict("enough")}
-                        className="bg-white border border-stone-200 rounded-xl py-2 px-3 text-sm text-left hover:border-amber-400">対応できると思う</button>
-                      <button onClick={() => setStaffPredict("short")}
-                        className="bg-white border border-stone-200 rounded-xl py-2 px-3 text-sm text-left hover:border-amber-400">取りこぼしそう</button>
-                    </div>
-                  </div>
-                )}
-
-                {askedAll && staffPredict !== null && (
-                  <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-600 leading-relaxed">
-                    <div className="text-stone-500 mb-1">答え合わせ ― 数字にしてみると</div>
-                    現在：{honten.staffCount}人 × {HOURS_PER_DAY}時間 × {DAYS_PER_MONTH}日 ÷ {SERVICE_HOURS_BASE}時間 = <b>月{hontenNow.capacity}人</b>まで対応可能（今のお客様は月{CURRENT_CUSTOMERS}人）
-                    <div className="border-t border-stone-200 my-2" />
-                    接客時間が{treatmentHours.toFixed(1)}時間に伸びると、上限は<b>月{treatmentCapacity}人</b>に下がり、
-                    {treatmentCapacity < CURRENT_CUSTOMERS
-                      ? <> 今のお客様（{CURRENT_CUSTOMERS}人）のうち<b className="text-red-600">{CURRENT_CUSTOMERS - treatmentCapacity}人を取りこぼします</b>。</>
-                      : <> 今のお客様（{CURRENT_CUSTOMERS}人）は対応できます。</>}
-                    増員すると（{honten.staffCount + 1}人）上限は<b>月{treatmentCapacityWithHire}人</b>に戻ります。
-                    <div className="mt-2 text-[12px]">
-                      あなたの予想は「{staffPredict === "enough" ? "対応できる" : "取りこぼす"}」。
-                      {(treatmentCapacity < CURRENT_CUSTOMERS) === (staffPredict === "short")
-                        ? <b className="text-green-700"> 正解です！</b>
-                        : <b className="text-red-600"> 実は違いました。</b>}
-                    </div>
-                  </div>
-                )}
                 <div className="text-[12px] text-stone-400 mt-1">迷ったら志村先生（公認会計士・税理士）に相談してみるのもいいかもしれません。</div>
                 <div className="flex flex-col gap-2 mt-2">
                   <button onClick={() => chooseStaffEvent("hire")}
                     className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">
-                    スタッフを1人増やして始める {askedAll && <span className="text-stone-400">（人件費 +{manYen(TREATMENT.hireWage)}/月、上限は月{treatmentCapacityWithHire}人に）</span>}
+                    スタッフを1人増やして始める {askedAll && <span className="text-stone-400">（人件費 +{manYen(TREATMENT.hireWage)}/月）</span>}
                   </button>
                   <button onClick={() => chooseStaffEvent("reckless")}
                     className="bg-white border border-stone-200 rounded-xl py-2.5 px-3 text-sm text-left hover:border-amber-400">
@@ -596,17 +535,7 @@ export default function InheritDemo() {
 
             {promoChoice === null && promoDecisionOpen && (
               <>
-                {promoAskedAll ? (
-                  <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-600 leading-relaxed">
-                    <div className="text-stone-500 mb-1">聞いた話を数字にしてみると――</div>
-                    業者さんは「新規<b>+{PROMO.claimedNewCustomers}人</b>」と言っていますが、まず上限（対応可能人数）と照らし合わせます。
-                    <div className="border-t border-stone-200 my-2" />
-                    今の上限は<b>月{hontenNow.capacity}人</b>、すでに<b>{hontenNow.customers}人</b>来ているので、追加で対応できるのは残り<b>{Math.max(0, hontenNow.capacity - hontenNow.customers)}人</b>まで。
-                    {hontenNow.customers + PROMO.claimedNewCustomers > hontenNow.capacity
-                      ? <> つまり<b className="text-red-600">+{PROMO.claimedNewCustomers}人は上限を超えて頭打ち</b>で、実際に増やせるのは最大+{Math.max(0, hontenNow.capacity - hontenNow.customers)}人。<b>予測を鵜呑みにすると見込み違い</b>になります。</>
-                      : <> 上限内なので概ね捌けそうです。</>}
-                  </div>
-                ) : (
+                {!promoAskedAll && (
                   <div className="bg-stone-50 rounded-xl p-3 mt-2 border border-stone-200 text-[13px] text-stone-500">
                     まだ詳しく聞いていないので、判断材料が少ない状態です。このまま決めることもできますが、先に「質問する」で状況を聞いておくと安心です。
                   </div>
@@ -647,6 +576,9 @@ export default function InheritDemo() {
   // ===== 志村公認会計士・税理士事務所 =====
   if (screen === "tax") {
     const prev = history.length >= 2 ? history[history.length - 2] : null;
+    const lastHonten = lastStoreResults ? lastStoreResults[0] : null;
+    const staffReflectionPending = staffEventResultPending && month > staffEventMonth && lastHonten;
+    const promoReflectionPending = promoResultPending && month > promoMonth && lastHonten;
 
     if (taxMode === "menu") return (
       <Shell cash={cash} cashLabel={CASH_LABEL} transitioning={transitioning}>
@@ -655,6 +587,26 @@ export default function InheritDemo() {
           <span className="text-sm text-stone-500">{month}ヶ月目</span>
         </div>
         <div className="text-center pt-3"><Shimura size={72} /></div>
+
+        {/* 先月の店舗施策の振り返り（意思決定はお店で、反省点はここで） */}
+        {staffReflectionPending && (
+          <>
+            <TalkBox name="志村（公認会計士・税理士）" avatar={<Shimura size={52} mood={staffEventChoice === "reckless" ? "worried" : "normal"} />}>
+              {staffEventChoice === "hire" && <>先月、スタッフを増やしてトリートメントを始めましたね。振り返ってみましょう。来られた<b>{lastHonten.customers}人</b>全員に対応でき、客単価は<b>{yen(lastHonten.unitPrice)}</b>に、本店の売上は<b>{yen(lastHonten.sales)}</b>になりました。増員コストとの見合いは決算書で確認できますよ。</>}
+              {staffEventChoice === "reckless" && <>先月、増員せずにトリートメントを始めましたね。振り返ってみましょう。接客時間が延びて対応できる上限が<b>{lastHonten.capacity}人</b>に下がり、来店希望{CURRENT_CUSTOMERS}人のうち<b className="text-red-600">{lastHonten.customers}人しか対応できませんでした</b>（{CURRENT_CUSTOMERS - lastHonten.customers}人を取りこぼし）。次からは、決める前に対応できる上限（スタッフ数×接客時間から出せます）を確認するといいですよ。</>}
+            </TalkBox>
+            <button onClick={() => setStaffEventResultPending(false)} className="text-[13px] text-amber-700 mt-2 mb-1 block ml-auto">わかった →</button>
+          </>
+        )}
+        {promoReflectionPending && (
+          <>
+            <TalkBox name="志村（公認会計士・税理士）" avatar={<Shimura size={52} />}>
+              {promoChoice === "run" && <>先月、新規客クーポンを配りましたね。振り返ってみましょう。業者さんは「新規+{PROMO.claimedNewCustomers}人」と言っていましたが、今の上限<b>{lastHonten.capacity}人</b>では捌ききれず頭打ちで、実際に対応できたのは<b>{lastHonten.customers}人</b>でした。配布コストもかかっています。業者さんの数字を鵜呑みにせず、まず自社の上限と照らし合わせてから判断するといいですよ。</>}
+            </TalkBox>
+            <button onClick={() => setPromoResultPending(false)} className="text-[13px] text-amber-700 mt-2 mb-1 block ml-auto">わかった →</button>
+          </>
+        )}
+
         <TalkBox name="志村（公認会計士・税理士）" avatar={<Shimura size={52} />}>
           ようこそ。決算書を見ますか？　それとも、何か相談したいことがありますか？
         </TalkBox>
