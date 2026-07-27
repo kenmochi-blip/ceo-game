@@ -27,12 +27,12 @@ const signedNum = (d, unit = "") => d === 0 ? `±0${unit}` : (d > 0 ? "+" : "−
 const signedYen = (d) => d === 0 ? "±0" : (d > 0 ? "+" : "−") + "¥" + Math.abs(d).toLocaleString();
 
 // PL同様に、値と（前月比）の位置を行ごとに幅固定で縦に揃える汎用行
-function StatRow({ label, val, diff, bold }) {
+function StatRow({ label, val, diff, bold, red }) {
   return (
     <div className="flex justify-between py-1">
       <span className={"text-sm " + (bold ? "font-medium text-stone-700" : "text-stone-500")}>{label}</span>
       <span className="flex items-baseline justify-end">
-        <span className={"text-sm tabular-nums text-right w-24 shrink-0 text-stone-700 " + (bold ? "font-medium" : "")}>{val}</span>
+        <span className={"text-sm tabular-nums text-right w-24 shrink-0 " + (bold ? "font-medium " : "") + (red ? "text-red-600" : "text-stone-700")}>{val}</span>
         <span className="text-[10px] text-stone-400 text-right w-20 shrink-0 ml-1 tabular-nums whitespace-nowrap">{diff || ""}</span>
       </span>
     </div>
@@ -376,6 +376,7 @@ export default function InheritDemo() {
     const lastHonten = lastStoreResults ? lastStoreResults[0] : null;
     const prevHonten = history.length >= 2 ? history[history.length - 2].storeResults[0] : null; // 前月比の比較対象
     const utilization = lastHonten ? Math.round((lastHonten.customers / hontenNow.capacity) * 100) : null;
+    const prevUtilization = prevHonten ? Math.round((prevHonten.customers / prevHonten.capacity) * 100) : null;
     return (
       <Shell cash={cash} cashLabel={CASH_LABEL} cashDiff={cashDiff} transitioning={transitioning}>
         <div className="flex items-center justify-between pt-1">
@@ -397,13 +398,18 @@ export default function InheritDemo() {
 
         {storeMode !== "baseline" && (
           <div className="bg-white rounded-xl p-3 mt-3 border border-stone-200">
-            <div className="text-xs text-stone-500 mb-1">お店の今の状態</div>
-            <Row label="👥 スタイリスト数" val={`${honten.staffCount}人`} />
-            <Row label="⏱ 一人あたり接客時間" val={`${hontenNow.serviceHours.toFixed(2)}時間`} />
-            <Row label="📐 対応可能人数（上限）" val={`${hontenNow.capacity}人/月`} />
-            <Row label="🙋 潜在需要（来たいお客様）" val={`${hontenNow.demand}人/月`} red={hontenNow.demand > hontenNow.capacity} />
+            <div className="text-xs text-stone-500 mb-1">お店の今の状態<span className="text-stone-400">（）内は先月の値</span></div>
+            <StatRow label="👥 スタイリスト数" val={`${honten.staffCount}人`}
+              diff={lastHonten ? `（${lastHonten.staffCount}人）` : ""} />
+            <StatRow label="⏱ 一人あたり接客時間" val={`${hontenNow.serviceHours.toFixed(2)}時間`}
+              diff={lastHonten ? `（${lastHonten.serviceHours.toFixed(2)}時間）` : ""} />
+            <StatRow label="📐 対応可能人数（上限）" val={`${hontenNow.capacity}人/月`}
+              diff={lastHonten ? `（${lastHonten.capacity}人）` : ""} />
+            <StatRow label="🙋 潜在需要（来たいお客様）" val={`${hontenNow.demand}人/月`} red={hontenNow.demand > hontenNow.capacity}
+              diff={lastHonten ? `（${lastHonten.demand}人）` : ""} />
             {lastHonten && (
-              <Row label="📊 稼働率（先月客数÷上限）" val={`${utilization}%`} red={utilization >= 100} />
+              <StatRow label="📊 稼働率（先月客数÷上限）" val={`${utilization}%`} red={utilization >= 100}
+                diff={prevUtilization !== null ? `（${prevUtilization}%）` : ""} />
             )}
           </div>
         )}
