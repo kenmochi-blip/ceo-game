@@ -817,13 +817,19 @@ export default function InheritDemo() {
               </>
             )}
 
-            {/* 振り返り中でも決算書は見に行けるようにする。
-                数字を自分で確かめてから答えたい人を、クイズに閉じ込めない。
-                戻ってくれば振り返りは同じ設問から続く。 */}
+            {/* 振り返り中でも事務所の他の用事は済ませられるようにする。
+                クイズに閉じ込めない。戻ってくれば振り返りは同じ設問から続く。 */}
             <div className="mt-3">
-              <LocationCard icon="📊" title="先に決算書を見る"
-                subtitle="数字を確かめてから答えても大丈夫です"
-                onClick={() => setTaxMode("statements")} />
+              <div className="text-[11px] text-stone-400 mb-1.5">先に別のことをすることもできます（戻れば続きから）</div>
+              <div className="flex flex-col gap-2">
+                <LocationCard icon="📊" title="先に決算書を見る"
+                  subtitle="数字を確かめてから答えても大丈夫です"
+                  onClick={() => setTaxMode("statements")} />
+                <LocationCard icon="💬" title="相談する" subtitle="経営の話をいろいろ聞く"
+                  onClick={() => setTaxMode("qa")} />
+                <LocationCard icon="💴" title="役員報酬を見直す" subtitle="社長の報酬を変えると数字がどう動くか"
+                  onClick={() => setTaxMode("draw")} />
+              </div>
             </div>
           </>
         )}
